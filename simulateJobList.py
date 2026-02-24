@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import SimulatedJob
+from src import SimulatedJob
 import numpy as np
 import pickle
 
@@ -18,7 +18,8 @@ def simulateJobs():
     jobsList = []
 
     for i in range(n):
-        newJob = SimulatedJob.SimulatedJob(sampledSubmissionTimes[i],
+        newJob = SimulatedJob.SimulatedJob(i, 
+                                           sampledSubmissionTimes[i],
                                            sampledIntervalLengths[i],
                                            jobLengthUncertainty)
         newJob.dump()
