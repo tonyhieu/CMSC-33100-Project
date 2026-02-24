@@ -2,37 +2,53 @@
 
 class SchedulePerformance:
 
-    def __init__(self, simulatedJobs, scheduledJobs):
+    def __init__(self, scheduledJobs):
 
         self.efficiency = -1.0
         self.predictability = -1.0
         self.fairness = -1.0
         self.combined = -1.0
         
-        self.calculateEfficiency(simulatedJobs, scheduledJobs)
-        self.calculatePredictability(simulatedJobs, scheduledJobs)
-        self.calculateFairness(simulatedJobs, scheduledJobs)
-        self.calculateCombined(simulatedJobs, scheduledJobs)
+        self.calculateEfficiency(scheduledJobs)
+        self.calculatePredictability(scheduledJobs)
+        self.calculateFairness(scheduledJobs)
+        self.calculateCombined(scheduledJobs)
 
-    def calculateEfficiency(self, simulatedJobs, scheduledJobs):
-        efficiency = 0.0
-        for jobID, simulatedJob in enumerate(simulatedJobs):
-            scheduledJob = scheduledJobs[jobID]
+    def calculateEfficiency(self, scheduledJobs):
+        totalWorkingTime = 0.0
+        totalWaitingTime = 0.0
+        for jobID, scheduledJob in scheduledJobs.items():
+            totalWaitingTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
+            totalWorkingTime += scheduledJob.intervalLength
+        
+        print("totalWaitingTime: ", totalWaitingTime)
+        print("totalWorkingTime: ", totalWorkingTime)
 
-        self.efficiency = 0.0
+        self.efficiency = totalWorkingTime / totalWaitingTime
 
 
-    def calculatePredictability(self, simulatedJobs, scheduledJobs):
-        self.predictability = 0.0
+    def calculatePredictability(self, scheduledJobs):
 
-    def calculateFairness(self, simulatedJobs, scheduledJobs):
-        self.fairness = 0.0
+        totalOffset = 0.0
+        for jobID, scheduledJob in scheduledJobs.items():
+            totalOffset += scheduledJob.getFinishTime() - scheduledJob.expectedFinishTime
 
-    def calculateCombined(self, simulatedJobs, scheduledJobs):
+        print("totalOffset: ", totalOffset)
+
+        self.predictability = totalOffset / len(scheduledJobs)
+
+    def calculateFairness(self, scheduledJobs):
+
+        totalWaitingTime = 0.0
+        for jobID, scheduledJob in scheduledJobs.items():
+            totalWaitingTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
+        self.fairness = totalWaitingTime / len(scheduledJobs)
+
+    def calculateCombined(self, scheduledJobs):
         self.combined = 0.0
 
     def dump(self):
         print(f"Schedule Performance:")
         print(f"efficiency: {self.efficiency:8.3f}, predictability: {self.predictability:8.3f}")
-        print(f"predictability: {self.fairness:8.3f}, combined: {self.combined:8.3f}")
+        print(f"fairness: {self.fairness:8.3f}, combined: {self.combined:8.3f}")
         print()

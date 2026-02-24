@@ -12,17 +12,18 @@ class AlgoFIFO(AlgoBase.AlgoBase):
         jobStartTime = self.currentSchedule.getCurrentEndTime()
         jobEndTime = jobStartTime + job.intervalLength
 
-        scheduledJob = ScheduledJob.ScheduledJob(job, jobEndTime)
+        scheduledJob = ScheduledJob.ScheduledJob(job, self.currentSchedule.getExpectedEndTimeAtSubmission(job.submissionTime) + job.expectedLength)
         segmentID = scheduledJob.getNumberOfSegments()
 
-        segment = Segment.Segment(segmentID, jobStartTime, jobEndTime, job.id)
+
+        segment = Segment.Segment(segmentID, jobStartTime, jobEndTime, job.id, job.expectedLength)
         scheduledJob.addSegment(segment)
         self.scheduledJobs[job.id] = scheduledJob
         self.currentSchedule.addSegment(segment)
 
-    def evaluateSchedule(self, simulatedJobs):
+    def evaluateSchedule(self):
         self.currentSchedule.dump()
-        sp = SchedulePerformance.SchedulePerformance(simulatedJobs, self.scheduledJobs)
+        sp = SchedulePerformance.SchedulePerformance(self.scheduledJobs)
         
         print("\n\n")
         return sp

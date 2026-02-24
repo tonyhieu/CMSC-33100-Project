@@ -2,11 +2,12 @@
 
 class Segment:
 
-    def __init__(self, segmentID, startTime, endTime, jobID):
+    def __init__(self, segmentID, startTime, endTime, jobID, expectedDuration):
         self.segmentID = segmentID
         self.startTime = startTime
         self.endTime = endTime
         self.jobID = jobID
+        self.expectedDuration = expectedDuration
     
     def dump(self):
         print(f"Segment ID: {self.segmentID:5} of JobID: {self.jobID:5}")

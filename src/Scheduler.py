@@ -10,4 +10,4 @@ class Scheduler:
             self.schedulingAlgorithm.addJobToSchedule(job)
     
     def evaluateSchedule(self):
-        return self.schedulingAlgorithm.evaluateSchedule(self.jobList)
+        return self.schedulingAlgorithm.evaluateSchedule()

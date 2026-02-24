@@ -12,3 +12,12 @@ class ScheduledJob(Job.Job):
 
     def getNumberOfSegments(self):
         return len(self.segments)
+
+    def getFinishTime(self):
+        if len(self.segments) < 1:
+            raise ValueError("Scheduled Job has no scheduled segments!")
+        lastFinishTime = self.segments[0].endTime
+        if len(self.segments) > 1:
+            for segment in self.segments[1:]:
+                lastFinishTime = max(lastFinishTime, segment.endTime)
+        return lastFinishTime
