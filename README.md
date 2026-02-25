@@ -23,3 +23,5 @@ build a method, probably in the Schedule Class, which plots the schedule so it i
 
 refine the simulation process to be as realistc as possible, I just through quick and easy stuff in there
 
+add command line interface to betteer control algorithm selection and simulation parameters
+
