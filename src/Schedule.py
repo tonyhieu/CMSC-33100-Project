@@ -1,4 +1,4 @@
-from src import Segment
+from Segment import Segment
 
 class Schedule:
 
@@ -29,7 +29,7 @@ class Schedule:
         runningSegment = self.schedule[-1]
 
         #this is the part of the segment that already finished running
-        trimmedSegment = Segment.Segment(runningSegment.segmentID,
+        trimmedSegment = Segment(runningSegment.segmentID,
                                          runningSegment.startTime,
                                          time,
                                          runningSegment.jobID,

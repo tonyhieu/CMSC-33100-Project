@@ -1,7 +1,8 @@
-from src import AlgoBase
-from src import SchedulePerformance
-from src import ScheduledJob
-from src import Segment
+from AlgoBase import AlgoBase
+from SchedulePerformance import SchedulePerformance
+from ScheduledJob import ScheduledJob
+from Segment import Segment
+from Job import Job
 import heapq
 import itertools
 
@@ -9,13 +10,13 @@ import itertools
 tieBreakingCounter = itertools.count()
 
 
-class AlgoPreemptive(AlgoBase.AlgoBase):
+class AlgoPreemptive(AlgoBase):
 
     def __init__(self):
         super().__init__("Preemptive")
         self.jobQueue = []
 
-    def handleJobSubmission(self, job):
+    def handleJobSubmission(self, job: Job):
 
         '''
         we place ourselves in the moment of the scheduler right at this current
@@ -46,7 +47,7 @@ class AlgoPreemptive(AlgoBase.AlgoBase):
             runningSegment = self.currentSchedule.trimRunningSegment(job.submissionTime)
             runningTime = job.submissionTime - runningSegment.startTime#time the segment got to run
             #add the running segment as another job to the heap queue
-            runningJob = ScheduledJob.ScheduledJob(self.scheduledJobs[runningSegment.jobID])
+            runningJob = ScheduledJob(self.scheduledJobs[runningSegment.jobID])
 
             if (runningTime > runningJob.expectedLength):
                 expectedRemainingTime = 0.0
@@ -54,7 +55,7 @@ class AlgoPreemptive(AlgoBase.AlgoBase):
                 expectedRemainingTime = runningJob.expectedLength - runningTime
             heapq.heappush(self.jobQueue, (expectedRemainingTime, next(tieBreakingCounter), runningJob))
 
-        submittedJob = ScheduledJob.ScheduledJob(job)
+        submittedJob = ScheduledJob(job)
         submittedJobTieCount = next(tieBreakingCounter)
         heapq.heappush(self.jobQueue, (submittedJob.expectedLength, submittedJobTieCount, submittedJob))
         expectedFinishTime = job.submissionTime + self.getExpectedDurationUntilJob(submittedJob.id, submittedJob.expectedLength, submittedJobTieCount) + submittedJob.expectedLength
@@ -71,7 +72,7 @@ class AlgoPreemptive(AlgoBase.AlgoBase):
         jobEndTime = jobStartTime + jobToSchedule.intervalLength
 
         segmentID = self.scheduledJobs[jobToSchedule.id].getNumberOfSegments()
-        segment = Segment.Segment(segmentID, jobStartTime, jobEndTime, jobToSchedule.id, jobToSchedule.expectedLength)
+        segment = Segment(segmentID, jobStartTime, jobEndTime, jobToSchedule.id, jobToSchedule.expectedLength)
         self.scheduledJobs[jobToSchedule.id].addSegment(segment)
         self.currentSchedule.addSegment(segment)
 

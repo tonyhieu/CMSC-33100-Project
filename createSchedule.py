@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-from src import AlgoFIFO
-from src import AlgoPreemptive
-from src import Scheduler
+from src.AlgoFIFO import AlgoFIFO
+from src.AlgoPreemptive import AlgoPreemptive
+from src.Scheduler import Scheduler
 import pickle
 
 def createSchedule():
@@ -10,11 +10,11 @@ def createSchedule():
 
     algoName = "preemptive"
     if algoName == "preemptive":
-        algo = AlgoPreemptive.AlgoPreemptive()
+        algo = AlgoPreemptive()
     elif algoName == "FIFO":
-        algo = AlgoFIFO.AlgoFIFO()
+        algo = AlgoFIFO()
 
-    scheduler = Scheduler.Scheduler(algo, jobList)
+    scheduler = Scheduler(algo, jobList)
     
     scheduler.createSchedule()
     schedulePreformance = scheduler.evaluateSchedule()

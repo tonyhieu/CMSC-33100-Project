@@ -1,7 +1,7 @@
 import random
-from src import Job
+from Job import Job
 
-class SimulatedJob(Job.Job):
+class SimulatedJob(Job):
 
     def __init__(self, jobID, submissionTime, expectedLength, lengthUncertainty):
         self.expectedLength = expectedLength

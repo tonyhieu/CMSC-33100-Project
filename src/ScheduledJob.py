@@ -1,6 +1,6 @@
-from src import Job
+from Job import Job
 
-class ScheduledJob(Job.Job):
+class ScheduledJob(Job):
 
     def __init__(self, job):
         super().__init__(job.id, job.submissionTime, job.intervalLength)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from src import SimulatedJob
+from src.SimulatedJob import SimulatedJob
 import numpy as np
 import pickle
 
@@ -14,18 +14,16 @@ def simulateJobs():
     # SORT the submission times so they looping through them submits the jobs in order
     sampledSubmissionTimes = np.random.uniform(low=0.0, high=maxSubmissionTime, size=n)
     sampledSubmissionTimes.sort()
-    sampledIntervalLengths = samples = np.random.poisson(lam=averageJobLength, size=n)
+    sampledIntervalLengths = np.random.poisson(lam=averageJobLength, size=n)
     jobsList = []
 
     for i in range(n):
-        newJob = SimulatedJob.SimulatedJob(i, 
+        newJob = SimulatedJob(i, 
                                            sampledSubmissionTimes[i],
                                            sampledIntervalLengths[i],
                                            jobLengthUncertainty)
         newJob.dump()
         jobsList.append(newJob)
-
-    import pickle
 
     with open(outputFileName, "wb") as f:
         pickle.dump(jobsList, f)

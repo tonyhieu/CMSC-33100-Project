@@ -9,7 +9,7 @@ The executable: "simulateJobList.py" simulates as a list of SimulatedJob objects
 
 The executable "createSchedule.py" runs an algorithm (custom class inheriteed from AlgoBase) to create a schedule. The schedule consists of segments split throughout time. A segment is a fraction of a job, so each job is split into a finite number of segments that appear in the schedule.
 
-The final product of this schedule is a distionary of {int, ScheduledJob} which has jobID as the key and the scheduled job as the value. I implemented three metrics to measure schedules but I think they can be much improved
+The final product of this schedule is a dictionary of {int, ScheduledJob} which has jobID as the key and the scheduled job as the value. I implemented three metrics to measure schedules but I think they can be much improved
 
 To Do:
 

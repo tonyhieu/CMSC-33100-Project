@@ -1,11 +1,11 @@
-from src import AlgoBase
-from src import SchedulePerformance
-from src import ScheduledJob
-from src import Segment
+from AlgoBase import AlgoBase
+from SchedulePerformance import SchedulePerformance
+from ScheduledJob import ScheduledJob
+from Segment import Segment
 from queue import Queue
 
 
-class AlgoFIFO(AlgoBase.AlgoBase):
+class AlgoFIFO(AlgoBase):
 
     def __init__(self):
         super().__init__("FIFO")
@@ -47,7 +47,7 @@ class AlgoFIFO(AlgoBase.AlgoBase):
             expectedStartTime = job.submissionTime + self.queueExpectedDuration
 
         expectedEndTime = expectedStartTime + job.expectedLength
-        scheduledJob = ScheduledJob.ScheduledJob(job)
+        scheduledJob = ScheduledJob(job)
         scheduledJob.setExpectedFinishTime(expectedEndTime)
 
         self.jobQueue.put(scheduledJob)
@@ -65,7 +65,7 @@ class AlgoFIFO(AlgoBase.AlgoBase):
         jobEndTime = jobStartTime + jobToSchedule.intervalLength
 
         segmentID = jobToSchedule.getNumberOfSegments()
-        segment = Segment.Segment(segmentID, jobStartTime, jobEndTime, jobToSchedule.id, jobToSchedule.expectedLength)
+        segment = Segment(segmentID, jobStartTime, jobEndTime, jobToSchedule.id, jobToSchedule.expectedLength)
         self.scheduledJobs[jobToSchedule.id].addSegment(segment)
         self.currentSchedule.addSegment(segment)    
         
@@ -81,7 +81,7 @@ class AlgoFIFO(AlgoBase.AlgoBase):
 
 
         self.currentSchedule.dump()
-        sp = SchedulePerformance.SchedulePerformance(self.scheduledJobs)
+        sp = SchedulePerformance(self.scheduledJobs)
         
         print("\n\n")
         return sp
