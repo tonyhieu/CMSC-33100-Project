@@ -2,10 +2,11 @@ from src import Job
 
 class ScheduledJob(Job.Job):
 
-    def __init__(self, job, expectedFinishTime):
+    def __init__(self, job):
         super().__init__(job.id, job.submissionTime, job.intervalLength)
-        self.expectedFinishTime = expectedFinishTime
+        self.expectedLength = job.expectedLength
         self.segments = []
+        self.expectedFinishTime = -1.0
 
     def addSegment(self, segment):
         self.segments.append(segment)
@@ -21,3 +22,6 @@ class ScheduledJob(Job.Job):
             for segment in self.segments[1:]:
                 lastFinishTime = max(lastFinishTime, segment.endTime)
         return lastFinishTime
+
+    def setExpectedFinishTime(self, expectedFinishTime):
+        self.expectedFinishTime = expectedFinishTime

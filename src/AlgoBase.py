@@ -9,7 +9,7 @@ class AlgoBase(ABC):
         self.scheduledJobs = {} #Dictionary of {jobID: ScheduledJob}
 
     @abstractmethod
-    def addJobToSchedule(self, job):
+    def handleJobSubmission(self, job):
         pass
 
     @abstractmethod

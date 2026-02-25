@@ -7,7 +7,7 @@ class Scheduler:
 
     def createSchedule(self):
         for job in self.jobList:
-            self.schedulingAlgorithm.addJobToSchedule(job)
+            self.schedulingAlgorithm.handleJobSubmission(job)
     
     def evaluateSchedule(self):
         return self.schedulingAlgorithm.evaluateSchedule()

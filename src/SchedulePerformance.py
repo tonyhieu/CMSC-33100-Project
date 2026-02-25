@@ -31,6 +31,8 @@ class SchedulePerformance:
 
         totalOffset = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
+            if scheduledJob.expectedFinishTime < 0:
+                raise ValueError("scheduledJob expectedFinishTime not set!")
             totalOffset += scheduledJob.getFinishTime() - scheduledJob.expectedFinishTime
 
         print("totalOffset: ", totalOffset)
