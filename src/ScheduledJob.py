@@ -1,4 +1,4 @@
-from Job import Job
+from .Job import Job
 
 class ScheduledJob(Job):
 

@@ -1,8 +1,8 @@
-from AlgoBase import AlgoBase
-from SchedulePerformance import SchedulePerformance
-from ScheduledJob import ScheduledJob
-from Segment import Segment
-from Job import Job
+from .AlgoBase import AlgoBase
+from .SchedulePerformance import SchedulePerformance
+from .ScheduledJob import ScheduledJob
+from .Segment import Segment
+from .Job import Job
 import heapq
 import itertools
 

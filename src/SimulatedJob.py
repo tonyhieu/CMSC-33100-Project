@@ -1,5 +1,5 @@
 import random
-from Job import Job
+from .Job import Job
 
 class SimulatedJob(Job):
 

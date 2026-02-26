@@ -1,7 +1,7 @@
-from AlgoBase import AlgoBase
-from SchedulePerformance import SchedulePerformance
-from ScheduledJob import ScheduledJob
-from Segment import Segment
+from .AlgoBase import AlgoBase
+from .SchedulePerformance import SchedulePerformance
+from .ScheduledJob import ScheduledJob
+from .Segment import Segment
 from queue import Queue
 
 
