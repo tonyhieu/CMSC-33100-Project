@@ -34,10 +34,11 @@ class AlgoPriorityQueue(AlgoBase):
         the jobQueue length
         '''
         
-        scheduleEndTime = self.currentSchedule.getExactEndTime()
-        while ((len(self.jobQueue) > 0) and  (scheduleEndTime < job.submissionTime)):
-            self.scheduleJobFromHeapQueue()
-            scheduleEndTime = self.currentSchedule.getExactEndTime()
+        for coreID in range(self.nCores):
+            coreEndTime = self.currentSchedule.getExactEndTime(coreID)
+            while ((len(self.jobQueue[coreID]) > 0) and  (coreEndTime < job.submissionTime)):
+                self.scheduleThreadFromHeapQueue(coreID)
+                coreEndTime = self.currentSchedule.getExactEndTime(coreID)
         
         '''
         we now "stop" the current segment, split the part that has not finished into
@@ -65,7 +66,7 @@ class AlgoPriorityQueue(AlgoBase):
         submittedJob.setExpectedFinishTime(expectedFinishTime)
         self.scheduledJobs[job.id] = submittedJob
 
-    def scheduleJobFromHeapQueue(self):
+    def scheduleThreadFromHeapQueue(self, coreID):
         if len(self.jobQueue) == 0:
             raise ValueError("No Jobs in Queue to Schedule")
 

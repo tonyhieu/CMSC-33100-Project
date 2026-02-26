@@ -31,7 +31,7 @@ class AlgoFIFO(AlgoBase):
             coreEndTime = self.currentSchedule.getExactEndTime(coreID)
             while ((self.jobQueue[coreID].qsize() > 0) and  (coreEndTime < job.submissionTime)):
                 self.scheduleThreadFromQueue(coreID)
-                scheduleEndTime = self.currentSchedule.getExactEndTime(coreID)
+                coreEndTime = self.currentSchedule.getExactEndTime(coreID)
         
         '''
         we now add the current jobs threads to the queue and estimate the finish time of the last thread
