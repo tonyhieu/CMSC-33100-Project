@@ -25,7 +25,11 @@ def simulateJobs():
     parser.add_argument("-u", "--uncertainty", 
                               type=float, 
                               default = 5., 
-                              help="unvertainty in each jobs length")
+                              help="uncertainty in each jobs length")
+    parser.add_argument("--threads", 
+                            type=float, 
+                            default = 3., 
+                            help="average number of threads for each job")
 
     args = parser.parse_args()
 
@@ -35,18 +39,22 @@ def simulateJobs():
     maxSubmissionTime = args.time
     averageJobLength = args.length
     jobLengthUncertainty = args.uncertainty
+    averageThreadNumber = args.threads
 
     # SORT the submission times so they looping through them submits the jobs in order
     sampledSubmissionTimes = np.random.uniform(low=0.0, high=maxSubmissionTime, size=n)
     sampledSubmissionTimes.sort()
-    sampledIntervalLengths = np.random.poisson(lam=averageJobLength, size=n)
+    sampledThreadNumber = np.random.poisson(lam=averageThreadNumber - 1, size=n) + 1
     jobsList = []
 
     for i in range(n):
+        #sample one job length per thread
+        sampledIntervalLengths = np.random.poisson(lam=averageJobLength, size=sampledThreadNumber[i])
         newJob = SimulatedJob(i, 
-                                           sampledSubmissionTimes[i],
-                                           sampledIntervalLengths[i],
-                                           jobLengthUncertainty)
+                              sampledSubmissionTimes[i],
+                              sampledThreadNumber[i],
+                              sampledIntervalLengths,
+                              jobLengthUncertainty)
         newJob.dump()
         jobsList.append(newJob)
 

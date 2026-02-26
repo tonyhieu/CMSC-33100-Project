@@ -3,14 +3,15 @@ from .SchedulePerformance import SchedulePerformance
 from .ScheduledJob import ScheduledJob
 from .Segment import Segment
 from queue import Queue
-
+import numpy as np
 
 class AlgoFIFO(AlgoBase):
 
-    def __init__(self):
-        super().__init__("FIFO")
-        self.jobQueue = Queue()
-        self.queueExpectedDuration = 0.0
+    def __init__(self, nCores):
+        super().__init__("FIFO", nCores)
+        #we create a seperate queue for each core available to schedule threads on
+        self.jobQueue = [Queue() for _ in range(self.nCores)]
+        self.queueExpectedDuration = [0.0 for _ in range(self.nCores)]
 
     def handleJobSubmission(self, job):
 
@@ -18,56 +19,73 @@ class AlgoFIFO(AlgoBase):
         we place ourselves in the moment of the scheduler right at this current
         jobs submission time 
 
-        first we must add all jobs from queue to the schedule after converting them to segments, until 
-        the most recently scheduled segment is currently running (its finish 
+        first we must add all jobs from queue to the schedule after converting them to threads, until 
+        the most recently scheduled threads is currently running (its finish 
         time is after the current jobs submission time)
 
         the scheduler could be in a waiting state- at the time of submission, all
-        segments have finished and nothing in the queue. This is handled by looking at 
+        threads have finished and nothing in the queue. This is handled by looking at 
         the jobQueue size
         '''
+        for coreID in range(self.nCores):
+            coreEndTime = self.currentSchedule.getExactEndTime(coreID)
+            while ((self.jobQueue[coreID].qsize() > 0) and  (coreEndTime < job.submissionTime)):
+                self.scheduleThreadFromQueue(coreID)
+                scheduleEndTime = self.currentSchedule.getExactEndTime(coreID)
         
-        scheduleEndTime = self.currentSchedule.getExactEndTime()
-        while ((self.jobQueue.qsize() > 0) and  (scheduleEndTime < job.submissionTime)):
-            self.scheduleJobFromQueue()
-            scheduleEndTime = self.currentSchedule.getExactEndTime()
-        
         '''
-        we now add the current job to the queue and estimate its finish time
+        we now add the current jobs threads to the queue and estimate the finish time of the last thread
         '''
+        threadExpectedEndTimes = np.zeros(job.nThreads)
+        for theadID, thread in enumerate(job.threads):
+            #check core with earliest expected start time
+            earliestCore = 0
+            earliestExpectedStartTime = self.getEarliestExpectedStartTime(job.submissionTime, 0)
+            for coreID in range(1, self.nCores):
+                coreExpectedStartTime = self.getEarliestExpectedStartTime(job.submissionTime, coreID)
+                if coreExpectedStartTime < earliestExpectedStartTime:
+                    earliestExpectedStartTime = coreExpectedStartTime
+                    earliestCore = coreID
+            
+            self.jobQueue[earliestCore].put(thread)
+            self.queueExpectedDuration[earliestCore] += thread.expectedLength
+            threadExpectedEndTimes[theadID] = earliestExpectedStartTime + thread.expectedLength
 
-        '''this checks if a job is currently running at the time of submission
-        if so, we need the expected end time of only the last job, since
-        we know the time previous jobs finished
-        '''
-        if job.submissionTime < self.currentSchedule.getLastJobsExpectedEndTime():
-            expectedStartTime = self.currentSchedule.getLastJobsExpectedEndTime() \
-                                    + self.queueExpectedDuration
-        else:
-            expectedStartTime = job.submissionTime + self.queueExpectedDuration
-
-        expectedEndTime = expectedStartTime + job.expectedLength
         scheduledJob = ScheduledJob(job)
-        scheduledJob.setExpectedFinishTime(expectedEndTime)
-
-        self.jobQueue.put(scheduledJob)
-        self.queueExpectedDuration += job.expectedLength
+        scheduledJob.setExpectedFinishTime(np.max(threadExpectedEndTimes))
         self.scheduledJobs[job.id] = scheduledJob
+        
 
-    def scheduleJobFromQueue(self):
-        if self.jobQueue.qsize() == 0:
+    def scheduleThreadFromQueue(self, coreID):
+        if self.jobQueue[coreID].qsize() == 0:
             raise ValueError("No Jobs in Queue to Schedule")
 
-        jobToSchedule = self.jobQueue.get()
-        self.queueExpectedDuration -= jobToSchedule.expectedLength
-        jobStartTime = max(self.currentSchedule.getExactEndTime(), 
-                           jobToSchedule.submissionTime)
-        jobEndTime = jobStartTime + jobToSchedule.intervalLength
+        threadToSchedule = self.jobQueue[coreID].get()
+        self.queueExpectedDuration[coreID] -= threadToSchedule.expectedLength
+        threadStartTime = max(self.currentSchedule.getExactEndTime(coreID), 
+                           threadToSchedule.submissionTime)
+        threadEndTime = threadStartTime + threadToSchedule.actualLength
 
-        segmentID = jobToSchedule.getNumberOfSegments()
-        segment = Segment(segmentID, jobStartTime, jobEndTime, jobToSchedule.id, jobToSchedule.expectedLength)
-        self.scheduledJobs[jobToSchedule.id].addSegment(segment)
+        segmentID = self.scheduledJobs[threadToSchedule.jobID].getNumberOfScheduledSegments()
+        segment = Segment(segmentID, 
+                          threadToSchedule.jobID, 
+                          coreID, 
+                          threadToSchedule.threadID, 
+                          threadStartTime, 
+                          threadEndTime, 
+                          threadToSchedule.expectedLength)
+        self.scheduledJobs[threadToSchedule.jobID].addSegment(segment)
         self.currentSchedule.addSegment(segment)    
+
+    def getEarliestExpectedStartTime(self, submissionTime, coreID):
+        '''
+        the expected start time on this core is either the submission time, or the 
+        expected finish time of the last job, whichever is latest
+        plus the expected length of the queue
+        '''
+        return max(submissionTime, self.currentSchedule.getLastJobsExpectedEndTime(coreID)) \
+                + self.queueExpectedDuration[coreID]
+
         
 
 
@@ -76,8 +94,9 @@ class AlgoFIFO(AlgoBase):
         handleJobSubmission Placed Jobs in the queue, here we have to empty the 
         queue into the schedule before we analyze the schedule
         '''
-        while self.jobQueue.qsize() > 0:
-            self.scheduleJobFromQueue()
+        for coreID in range(self.nCores):
+            while self.jobQueue[coreID].qsize() > 0:
+                self.scheduleThreadFromQueue(coreID)
 
 
         self.currentSchedule.dump()

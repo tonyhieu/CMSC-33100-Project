@@ -2,24 +2,25 @@ from .Segment import Segment
 
 class Schedule:
 
-    def __init__(self):
-        self.schedule = []
+    def __init__(self, nCores):
+        self.nCores = nCores
+        self.schedule = [[] for _ in range(self.nCores)]
 
-    def getExactEndTime(self):
-        if len(self.schedule) > 0:
-            return self.schedule[-1].endTime
+    def getExactEndTime(self, coreID):
+        if len(self.schedule[coreID]) > 0:
+            return self.schedule[coreID][-1].endTime
         else:
              return 0.0
 
-    def getLastJobsExpectedEndTime(self):
-        if len(self.schedule) > 0:
-            return self.schedule[-1].startTime + self.schedule[-1].expectedDuration
+    def getLastJobsExpectedEndTime(self, coreID):
+        if len(self.schedule[coreID]) > 0:
+            return self.schedule[coreID][-1].startTime + self.schedule[coreID][-1].expectedDuration
         else:
              return 0.0
 
     def addSegment(self, segment):
-        self.schedule.append(segment)
-        return len(self.schedule) - 1
+        self.schedule[segment.coreID].append(segment)
+        return len(self.schedule[segment.coreID]) - 1
 
     def trimRunningSegment(self, time):
         if time < self.schedule[-1].startTime:
@@ -38,6 +39,8 @@ class Schedule:
         return runningSegment
 
     def dump(self):
-        for i, segment in enumerate(self.schedule):
-            print(f"Segment {i:5} in Schedule:")
-            segment.dump()
+        for coreID in range(self.nCores):
+            print(f"Schedule on Core {coreID:5}:")
+            for j, segment in enumerate(self.schedule[coreID]):
+                print(f"\tSegment {j:5} in Schedule:")
+                segment.dump()

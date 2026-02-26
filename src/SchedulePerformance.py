@@ -19,7 +19,7 @@ class SchedulePerformance:
         totalWaitingTime = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
             totalWaitingTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
-            totalWorkingTime += scheduledJob.intervalLength
+            totalWorkingTime += scheduledJob.getTotalRunningTime()
         
         print("totalWaitingTime: ", totalWaitingTime)
         print("totalWorkingTime: ", totalWorkingTime)
@@ -32,6 +32,7 @@ class SchedulePerformance:
         totalOffset = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
             if scheduledJob.expectedFinishTime < 0:
+                print(jobID, scheduledJob.expectedFinishTime)
                 raise ValueError("scheduledJob expectedFinishTime not set!")
             totalOffset += scheduledJob.getFinishTime() - scheduledJob.expectedFinishTime
 
