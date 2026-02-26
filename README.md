@@ -5,15 +5,18 @@ Duncan's work so far:
 
 I built a test framework to test algorithms on simulated jobs
 
-The executable: "simulateJobList.py" simulates as a list of SimulatedJob objects  with variable start times, durations, and duration unceertainty. These are saved to a file so algorithms can run on the same set of simulated jobs
+The executable: "simulateJobList.py" simulates as a list of SimulatedJob objects 
+These jobs consist of variable number of threads that can be run on different cores with variable submission times, durations, and duration uncertainty. These are saved to a file so algorithms can run on the same set of simulated jobs
 
-The executable "createSchedule.py" runs an algorithm (custom class inheriteed from AlgoBase) to create a schedule. The schedule consists of segments split throughout time. A segment is a fraction of a job, so each job is split into a finite number of segments that appear in the schedule.
+The executable "createSchedule.py" runs an algorithm (custom class inheriteed from AlgoBase) to create a schedule. The schedule consists of segments split throughout time and across a given number of cores. A segment is a thread implemented into a schedule
 
-The final product of this schedule is a dictionary of {int, ScheduledJob} which has jobID as the key and the scheduled job as the value. I implemented three metrics to measure schedules but I think they can be much improved
+The final product of this schedule is a dictionary of {int, ScheduledJob} which has jobID as the key and the scheduled job as the value.
+The scheduled job oblect has a list of every segment it was scheduled at
+I implemented three metrics to measure schedules but I think they can be much improved
 
 To Do:
 
-expand simulation and scheduling to be a function of resourses, cpu, gpu etc. Right now it is just one schedule on one processor
+implement Preemptive algo with multiple cores
 
 refine the metrics for scheduling jobs
 
