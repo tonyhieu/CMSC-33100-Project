@@ -155,7 +155,7 @@ class AlgoPriorityQueue(AlgoBase):
                 self.scheduleThreadFromHeapQueue(coreID)
 
         self.currentSchedule.dump()
-        sp = SchedulePerformance(self.scheduledJobs)
+        sp = SchedulePerformance(self.scheduledJobs, self.algoType)
         
         print("\n\n")
         return sp

@@ -2,8 +2,9 @@
 
 class SchedulePerformance:
 
-    def __init__(self, scheduledJobs):
+    def __init__(self, scheduledJobs, algo):
 
+        self.algo = algo
         self.efficiency = -1.0
         self.predictability = -1.0
         self.fairness = -1.0
@@ -51,7 +52,7 @@ class SchedulePerformance:
         self.combined = 0.0
 
     def dump(self):
-        print(f"Schedule Performance:")
+        print(f"{self.algo} Schedule Performance:")
         print(f"efficiency: {self.efficiency:8.3f}, predictability: {self.predictability:8.3f}")
         print(f"fairness: {self.fairness:8.3f}, combined: {self.combined:8.3f}")
         print()

@@ -5,6 +5,7 @@ from src.Scheduler import Scheduler
 import pickle
 import argparse
 from enum import Enum
+from src.Verifier import Verifier
 
 class AlgoType(Enum):
     FIFO = "FIFO"
@@ -39,6 +40,10 @@ def createSchedule():
 
     scheduler.createSchedule()
     schedulePreformance = scheduler.evaluateSchedule()
+
+    verifier = Verifier(algo, jobList)
+    if verifier.verified:
+        print(f"Algorithm {args.algorithm.name} created a Verified Schedule!")
     schedulePreformance.dump()
 
 if __name__ == "__main__":
