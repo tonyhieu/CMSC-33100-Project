@@ -24,5 +24,5 @@ implement the more sophisticated scheduling algorithms, I just have two so far
 
 build a method, probably in the Schedule Class, which plots the schedule so it is visually appealing and we can visuaally check for bugs
 
-refine the simulation process to be as realistc as possible, I just through quick and easy stuff in there
+refine the simulation process to be as realistc as possible, I just put quick and easy stuff in there
 
