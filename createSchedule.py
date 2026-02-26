@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 from src.AlgoFIFO import AlgoFIFO
-from src.AlgoPreemptive import AlgoPreemptive
+from src.AlgoPriorityQueue import AlgoPriorityQueue, PriorityType
 from src.Scheduler import Scheduler
 import pickle
 import argparse
+from enum import Enum
+
+class AlgoType(Enum):
+    FIFO = "FIFO"
+    PriorityQueue = "PriorityQueue"
 
 def createSchedule():
     parser = argparse.ArgumentParser(description="Turn Simulated Jobs into a Schedule using chosen algorithm")
@@ -12,7 +17,7 @@ def createSchedule():
                               default = "jobs.pkl",
                               help="Input file name")
     parser.add_argument("-a", "--algorithm", 
-                              type=str, 
+                              type=AlgoType, 
                               default = "FIFO", 
                               help="algorithm used to schedule jobs")
 
@@ -25,12 +30,11 @@ def createSchedule():
     with open(args.input, "rb") as f:
         jobList = pickle.load(f)
 
-    algoName = args.algorithm
-    if algoName == "preemptive":
-        algo = AlgoPreemptive(args.number)
-    elif algoName == "FIFO":
+    if args.algorithm == AlgoType.PriorityQueue:
+        algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength)
+    elif args.algorithm == AlgoType.FIFO:
         algo = AlgoFIFO(args.number)
-        
+
     scheduler = Scheduler(algo, jobList)
 
     scheduler.createSchedule()

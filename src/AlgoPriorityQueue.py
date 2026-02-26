@@ -5,16 +5,19 @@ from .Segment import Segment
 from .Job import Job
 import heapq
 import itertools
+from enum import Enum
 
+class PriorityType(Enum):
+    expectedLength = "expectedLength"
 
 tieBreakingCounter = itertools.count()
+class AlgoPriorityQueue(AlgoBase):
 
-
-class AlgoPreemptive(AlgoBase):
-
-    def __init__(self):
-        super().__init__("Preemptive")
-        self.jobQueue = []
+    def __init__(self, nCores, priorityType):
+        super().__init__("PriorityQueue", nCores)
+        self.nCores = nCores
+        self.priorityType = priorityType
+        self.jobQueue = [[] for _ in range(self.nCores)] #initialize list which heapq uses
 
     def handleJobSubmission(self, job: Job):
 
@@ -22,8 +25,8 @@ class AlgoPreemptive(AlgoBase):
         we place ourselves in the moment of the scheduler right at this current
         jobs submission time 
 
-        first we must add all segments from heap queue to the schedule, until 
-        the most recently scheduled segment is currently running (its finish 
+        first we must add all threads from heap queue to the schedule, until 
+        the most recently scheduled threads is currently running (its finish 
         time is after the current jobs submission time)
 
         the scheduler could be in a waiting state- at the time of submission, all

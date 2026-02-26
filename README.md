@@ -8,7 +8,7 @@ I built a test framework to test algorithms on simulated jobs
 The executable: "simulateJobList.py" simulates as a list of SimulatedJob objects 
 These jobs consist of variable number of threads that can be run on different cores with variable submission times, durations, and duration uncertainty. These are saved to a file so algorithms can run on the same set of simulated jobs
 
-The executable "createSchedule.py" runs an algorithm (custom class inheriteed from AlgoBase) to create a schedule. The schedule consists of segments split throughout time and across a given number of cores. A segment is a thread implemented into a schedule
+The executable "createSchedule.py" runs an algorithm (custom class inherited from AlgoBase) to create a schedule. The schedule consists of segments split throughout time and across a given number of cores. A segment is a thread implemented into a schedule
 
 The final product of this schedule is a dictionary of {int, ScheduledJob} which has jobID as the key and the scheduled job as the value.
 The scheduled job oblect has a list of every segment it was scheduled at

@@ -22,22 +22,6 @@ class Schedule:
         self.schedule[segment.coreID].append(segment)
         return len(self.schedule[segment.coreID]) - 1
 
-    def trimRunningSegment(self, time):
-        if time < self.schedule[-1].startTime:
-            raise ValueError("Current Time is before running segment's start time")
-        elif time > self.schedule[-1].endTime:
-            raise ValueError("Current Time is after running segment's end time")
-        runningSegment = self.schedule[-1]
-
-        #this is the part of the segment that already finished running
-        trimmedSegment = Segment(runningSegment.segmentID,
-                                         runningSegment.startTime,
-                                         time,
-                                         runningSegment.jobID,
-                                         time - runningSegment.startTime)
-        self.schedule[-1] = trimmedSegment
-        return runningSegment
-
     def dump(self):
         for coreID in range(self.nCores):
             print(f"Schedule on Core {coreID:5}:")
