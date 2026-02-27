@@ -31,10 +31,11 @@ def createSchedule():
     with open(args.input, "rb") as f:
         jobList = pickle.load(f)
 
-    if args.algorithm == AlgoType.PriorityQueue:
-        algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength)
-    elif args.algorithm == AlgoType.FIFO:
-        algo = AlgoFIFO(args.number)
+    match args.algorithm:
+        case AlgoType.PriorityQueue:
+            algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength)
+        case AlgoType.FIFO:
+            algo = AlgoFIFO(args.number)
 
     scheduler = Scheduler(algo, jobList)
 
