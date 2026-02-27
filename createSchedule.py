@@ -45,6 +45,7 @@ def createSchedule():
     verifier = Verifier(algo, jobList)
     if verifier.verified:
         print(f"Algorithm {args.algorithm.name} created a Verified Schedule!")
+    schedulePreformance.visualize()
     schedulePreformance.dump()
 
 if __name__ == "__main__":

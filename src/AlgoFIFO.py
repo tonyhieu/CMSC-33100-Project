@@ -100,7 +100,7 @@ class AlgoFIFO(AlgoBase):
 
 
         self.currentSchedule.dump()
-        sp = SchedulePerformance(self.scheduledJobs, self.algoType)
+        sp = SchedulePerformance(self.scheduledJobs, self.algoType, self.currentSchedule)
         
         print("\n\n")
         return sp
