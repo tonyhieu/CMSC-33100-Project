@@ -29,20 +29,20 @@ def createSchedule():
 
     args = parser.parse_args()
     with open(args.input, "rb") as f:
-        jobList = pickle.load(f)
+        jobList, globalSemaphoreList = pickle.load(f)
 
     match args.algorithm:
         case AlgoType.PriorityQueue:
-            algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength)
+            algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList)
         case AlgoType.FIFO:
-            algo = AlgoFIFO(args.number)
+            algo = AlgoFIFO(args.number, globalSemaphoreList)
 
     scheduler = Scheduler(algo, jobList)
 
     scheduler.createSchedule()
     schedulePreformance = scheduler.evaluateSchedule()
 
-    verifier = Verifier(algo, jobList)
+    verifier = Verifier(algo, jobList, globalSemaphoreList)
     if verifier.verified:
         print(f"Algorithm {args.algorithm.name} created a Verified Schedule!")
     schedulePreformance.dump()

@@ -1,3 +1,5 @@
+from .Semaphore import SemOperation
+
 class Verifier:
     '''
         This class will be used to ensure the schedules created by each finished
@@ -8,24 +10,25 @@ class Verifier:
             2    the list of simulatedJobs and scheduledJobs are equivalent
             3    there are no overlapping segments on an individual core
             4    every scheduled thread runs AFTER it was submitted
+            5    Semaphore work as expected
 
             feel free to add and implement more test conditions
     '''
     floatThreshold = 1e-3
 
-    def __init__(self, finishedAlgorithm, simulatedJobs):
+    def __init__(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
         print("Verifying...")
-        self.conditions = [self.one, self.two, self.three, self.four]
+        self.conditions = [self.one, self.two, self.three, self.four, self.five]
         self.verified = True
         for i, condition in enumerate(self.conditions):
-            if not condition(finishedAlgorithm, simulatedJobs):
-                print(f"Verification Condition {i:3} Failed")
+            if not condition(finishedAlgorithm, simulatedJobs, globalSemaphoreList):
+                print(f"Verification Condition {i+1:3} Failed")
                 self.verified = False
                 break
             else:
-                print(f"Verification Condition {i:3} Passed")
+                print(f"Verification Condition {i+1:3} Passed")
 
-    def one(self, finishedAlgorithm, simulatedJobs):
+    def one(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
         '''
         1    every thread for every Job eventually runs in the schedule
 
@@ -44,7 +47,7 @@ class Verifier:
 
         return all(all(jobBooleans) for jobBooleans in threadBooleans)
 
-    def two(self, finishedAlgorithm, simulatedJobs):
+    def two(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
         '''
         2    the list of simulatedJobs and scheduledJobs are equivalent
 
@@ -82,6 +85,8 @@ class Verifier:
                 if scheduledThread.submissionTime != simulatedThread.submissionTime:
                     print("thread submissionTime not matching")
                     return False
+            threadExpectedDurations = [0.0 for _ in range(simulatedJob.nThreads)]
+            threadActualDurations = [0.0 for _ in range(simulatedJob.nThreads)]
             for scheduledSegment in scheduledJob.scheduledSegments:
                 correspondingThread = scheduledJob.threads[scheduledSegment.threadID]
                 if correspondingThread.threadID != scheduledSegment.threadID:
@@ -90,15 +95,18 @@ class Verifier:
                 if correspondingThread.jobID != scheduledSegment.jobID:
                     print("segment jobID not matching")
                     return False
-                if correspondingThread.expectedLength != scheduledSegment.expectedDuration:
-                    print("segment expectedDuration not matching")
+                threadExpectedDurations[scheduledSegment.threadID] += scheduledSegment.expectedDuration
+                threadActualDurations[scheduledSegment.threadID] += scheduledSegment.endTime - scheduledSegment.startTime - scheduledSegment.waitigTime
+            for simulatedThread in simulatedJob.threads:
+                if abs(simulatedThread.expectedLength - threadExpectedDurations[simulatedThread.threadID]) > Verifier.floatThreshold:
+                    print("segment expectedDuration not matching: ")
                     return False
-                if abs(correspondingThread.actualLength - (scheduledSegment.endTime - scheduledSegment.startTime)) > Verifier.floatThreshold:
-                    print("segment actualLength not matching: ", correspondingThread.actualLength, scheduledSegment.endTime - scheduledSegment.startTime)
+                if abs(simulatedThread.actualLength - threadActualDurations[simulatedThread.threadID]) > Verifier.floatThreshold:
+                    print("segment actualLength not matching: ", simulatedThread.actualLength, threadActualDurations[simulatedThread.threadID], simulatedThread.threadID, simulatedThread.jobID)
                     return False
         return True
 
-    def three(self, finishedAlgorithm, simulatedJobs):
+    def three(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
         '''
         3    there are no overlapping segments on an individual core
 
@@ -116,7 +124,7 @@ class Verifier:
 
         return True
     
-    def four(self, finishedAlgorithm, simulatedJobs):
+    def four(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
         '''
         4    every scheduled thread runs AFTER it was submitted
 
@@ -128,4 +136,50 @@ class Verifier:
                     print(segment.startTime, simulatedJobs[segment.jobID].submissionTime)
                     return False
         
+        return True
+
+    def five(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
+
+        for coreID in range(finishedAlgorithm.nCores):
+            for segment in finishedAlgorithm.currentSchedule.schedule[coreID]:
+                if segment.start[2] == SemOperation.Wait:
+                    semaphore = globalSemaphoreList[segment.start[0]]
+                    """
+                    check all post operations to make sure one makes sense
+                    """
+                    validPostOperation = False
+                    for postOperation in semaphore.postOperations:
+                        if postOperation < segment.startTime:
+                            """
+                            no other wait operations can occur between them
+                            """
+                            waitInBetween = False
+                            for waitOperation in semaphore.waitOperations:
+                                if (waitOperation - segment.startTime) < Verifier.floatThreshold:
+                                    #this is the current wait operation 
+                                    continue
+                                elif (waitOperation > postOperation) and (waitOperation < segment.startTime):
+                                    waitInBetween = True
+                            if not waitInBetween:
+                                if segment.waitigTime == 0:
+                                    validPostOperation = True
+                        else:
+                            """
+                            no other wait operations can occur between them
+                            """
+                            waitInBetween = False
+                            for waitOperation in semaphore.waitOperations:
+                                if (waitOperation - segment.startTime) < Verifier.floatThreshold:
+                                    #this is the current wait operation 
+                                    continue
+                                elif (waitOperation < postOperation) and (waitOperation > segment.startTime):
+                                    waitInBetween = True
+                            if not waitInBetween:
+                                expectedWaitTime = postOperation - segment.startTime
+                                if abs(segment.waitigTime - expectedWaitTime) < Verifier.floatThreshold:
+                                    validPostOperation = True
+                    if validPostOperation:
+                        continue
+                    else:
+                        return False
         return True
