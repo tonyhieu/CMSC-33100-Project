@@ -57,7 +57,7 @@ def createSchedule():
         case AlgoType.FIFO:
             algo = AlgoFIFO(args.number, globalSemaphoreList)
         case AlgoType.PCS:
-            algo = AlgoPCS(args.number, nQueues=args.nqueues, W=args.W,
+            algo = AlgoPCS(args.number, globalSemaphoreList, nQueues=args.nqueues, W=args.W,
                            thresholds=args.thresholds)
     scheduler = Scheduler(algo, jobList)
 

@@ -50,9 +50,9 @@ class AlgoPCS(AlgoBase):
                  Defaults to [1, 2, 3, …] so each band covers one size step.
     """
 
-    def __init__(self, nCores, nQueues=2, W=1.0, thresholds=None):
+    def __init__(self, nCores, globalSemaphoreList, nQueues=2, W=1.0, thresholds=None):
         nQueues = max(1, min(nQueues, nCores))   # 1 ≤ nQueues ≤ nCores
-        super().__init__("PCS", nCores)
+        super().__init__("PCS", nCores, globalSemaphoreList)
         self.nQueues = nQueues
         self.W = W
 
@@ -149,8 +149,7 @@ class AlgoPCS(AlgoBase):
         endTime = startTime + thread.actualLength
 
         segID = self.scheduledJobs[thread.jobID].getNumberOfScheduledSegments()
-        seg = Segment(segID, thread.jobID, coreID, thread.threadID,
-                      startTime, endTime, thread.expectedLength)
+        seg = Segment(segID, coreID, thread, startTime, endTime)
         self.scheduledJobs[thread.jobID].addSegment(seg)
         self.currentSchedule.addSegment(seg)
 
@@ -190,31 +189,32 @@ class AlgoPCS(AlgoBase):
         threadExpectedEndTimes = np.zeros(job.nThreads)
 
         for tIdx, thread in enumerate(job.threads):
+            for stIDx, subthread in enumerate(self.breakThreadIntoSubThreads(thread)):
 
-            # Evaluate all of qID's own slots
-            bestQID = qID
-            bestLocal = min(range(self.queueCoreAlloc[qID]),
-                            key=lambda lc: self._expectedStartTime(qID, lc,
-                                                                   job.submissionTime))
-            bestEst = self._expectedStartTime(qID, bestLocal, job.submissionTime)
+                # Evaluate all of qID's own slots
+                bestQID = qID
+                bestLocal = min(range(self.queueCoreAlloc[qID]),
+                                key=lambda lc: self._expectedStartTime(qID, lc,
+                                                                    job.submissionTime))
+                bestEst = self._expectedStartTime(qID, bestLocal, job.submissionTime)
 
-            # Work conservation: check idle slots in other queues
-            for otherQID in range(self.nQueues):
-                if otherQID == qID:
-                    continue
-                for lc in range(self.queueCoreAlloc[otherQID]):
-                    if self._isTrulyIdle(otherQID, lc, job.submissionTime):
-                        est = self._expectedStartTime(otherQID, lc,
-                                                      job.submissionTime)
-                        if est < bestEst:
-                            bestEst = est
-                            bestLocal = lc
-                            bestQID = otherQID
+                # Work conservation: check idle slots in other queues
+                for otherQID in range(self.nQueues):
+                    if otherQID == qID:
+                        continue
+                    for lc in range(self.queueCoreAlloc[otherQID]):
+                        if self._isTrulyIdle(otherQID, lc, job.submissionTime):
+                            est = self._expectedStartTime(otherQID, lc,
+                                                        job.submissionTime)
+                            if est < bestEst:
+                                bestEst = est
+                                bestLocal = lc
+                                bestQID = otherQID
 
-            # Place thread in the chosen slot
-            self.jobQueues[bestQID][bestLocal].put(thread)
-            self.queueCoreExpDur[bestQID][bestLocal] += thread.expectedLength
-            threadExpectedEndTimes[tIdx] = bestEst + thread.expectedLength
+                # Place thread in the chosen slot
+                self.jobQueues[bestQID][bestLocal].put(subthread)
+                self.queueCoreExpDur[bestQID][bestLocal] += subthread.expectedLength
+                threadExpectedEndTimes[tIdx] = bestEst + subthread.expectedLength
 
         # ── Step 4: register the job with its predicted finish time ───────
         scheduledJob = ScheduledJob(job)
