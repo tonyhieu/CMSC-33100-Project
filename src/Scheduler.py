@@ -9,5 +9,5 @@ class Scheduler:
         for job in self.jobList:
             self.schedulingAlgorithm.handleJobSubmission(job)
     
-    def evaluateSchedule(self):
-        return self.schedulingAlgorithm.evaluateSchedule()
+    def evaluateSchedule(self, verbose=False):
+        return self.schedulingAlgorithm.evaluateSchedule(verbose=verbose)

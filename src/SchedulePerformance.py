@@ -1,10 +1,13 @@
 
+BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 class SchedulePerformance:
 
-    def __init__(self, scheduledJobs, algo):
+    def __init__(self, scheduledJobs, algo, schedule=None, verbose=False):
 
         self.algo = algo
+        self.schedule = schedule
+        self.verbose = verbose
         self.efficiency = -1.0
         self.predictability = -1.0
         self.fairness = -1.0
@@ -22,8 +25,9 @@ class SchedulePerformance:
             totalWaitingTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
             totalWorkingTime += scheduledJob.getTotalRunningTime()
         
-        print("totalWaitingTime: ", totalWaitingTime)
-        print("totalWorkingTime: ", totalWorkingTime)
+        if self.verbose:
+            print("totalWaitingTime: ", totalWaitingTime)
+            print("totalWorkingTime: ", totalWorkingTime)
 
         self.efficiency = totalWorkingTime / totalWaitingTime
 
@@ -37,7 +41,8 @@ class SchedulePerformance:
                 raise ValueError("scheduledJob expectedFinishTime not set!")
             totalOffset += scheduledJob.getFinishTime() - scheduledJob.expectedFinishTime
 
-        print("totalOffset: ", totalOffset)
+        if self.verbose:
+            print("totalOffset: ", totalOffset)
 
         self.predictability = totalOffset / len(scheduledJobs)
 
@@ -50,6 +55,37 @@ class SchedulePerformance:
 
     def calculateCombined(self, scheduledJobs):
         self.combined = 0.0
+
+    def visualize(self, width=80):
+        if self.schedule is None:
+            print("No schedule available for visualization.")
+            return
+
+        min_time = float('inf')
+        max_time = 0.0
+        for coreID in range(self.schedule.nCores):
+            if self.schedule.schedule[coreID]:
+                min_time = min(min_time, self.schedule.schedule[coreID][0].startTime)
+                max_time = max(max_time, self.schedule.schedule[coreID][-1].endTime)
+        if min_time == float('inf'):
+            min_time = 0.0
+        total_time = max_time - min_time
+        if total_time == 0:
+            return
+
+        print("\nSchedule Visualization:")
+        for coreID in range(self.schedule.nCores):
+            timeline = ['-'] * width
+            for segment in self.schedule.schedule[coreID]:
+                start_pos = int((segment.startTime - min_time) / total_time * width)
+                end_pos = int((segment.endTime - min_time) / total_time * width)
+                end_pos = max(start_pos + 1, end_pos)
+                end_pos = min(end_pos, width)
+                char = BASE64_CHARS[segment.jobID % 64]
+                for pos in range(start_pos, end_pos):
+                    timeline[pos] = char
+            print(f"Core {coreID + 1:<3} | {''.join(timeline)}")
+        print()
 
     def dump(self):
         print(f"{self.algo} Schedule Performance:")

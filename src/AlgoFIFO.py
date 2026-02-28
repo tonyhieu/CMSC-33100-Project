@@ -109,20 +109,22 @@ class AlgoFIFO(AlgoBase):
         
 
 
-    def evaluateSchedule(self):
+    def evaluateSchedule(self, verbose=False):
         '''
         handleJobSubmission Placed Jobs in the queue, here we have to empty the 
         queue into the schedule before we analyze the schedule
         '''
-        coresEmptied = [False for _ in range (self.nCores)]
-        nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
-        while (nextCore >= 0):
-            self.scheduleThreadFromQueue(nextCore)
-            nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
-                    
+        for coreID in range(self.nCores):
+            while self.jobQueue[coreID].qsize() > 0:
+                self.scheduleThreadFromQueue(coreID)
 
-        self.currentSchedule.dump()
-        sp = SchedulePerformance(self.scheduledJobs, self.algoType)
+
+        if verbose:
+            self.currentSchedule.dump()
+        sp = SchedulePerformance(self.scheduledJobs, self.algoType, self.currentSchedule,
+                                 verbose=verbose)
+        if verbose:
+            print("\n\n")
         
         print("\n\n")
         return sp
