@@ -96,7 +96,7 @@ class Verifier:
                     print("segment jobID not matching")
                     return False
                 threadExpectedDurations[scheduledSegment.threadID] += scheduledSegment.expectedDuration
-                threadActualDurations[scheduledSegment.threadID] += scheduledSegment.endTime - scheduledSegment.startTime - scheduledSegment.waitigTime
+                threadActualDurations[scheduledSegment.threadID] += scheduledSegment.endTime - scheduledSegment.startTime - scheduledSegment.waitingTime
             for simulatedThread in simulatedJob.threads:
                 if abs(simulatedThread.expectedLength - threadExpectedDurations[simulatedThread.threadID]) > Verifier.floatThreshold:
                     print("segment expectedDuration not matching: ")
@@ -161,7 +161,7 @@ class Verifier:
                                 elif (waitOperation > postOperation) and (waitOperation < segment.startTime):
                                     waitInBetween = True
                             if not waitInBetween:
-                                if segment.waitigTime == 0:
+                                if segment.waitingTime == 0:
                                     validPostOperation = True
                         else:
                             """
@@ -176,7 +176,7 @@ class Verifier:
                                     waitInBetween = True
                             if not waitInBetween:
                                 expectedWaitTime = postOperation - segment.startTime
-                                if abs(segment.waitigTime - expectedWaitTime) < Verifier.floatThreshold:
+                                if abs(segment.waitingTime - expectedWaitTime) < Verifier.floatThreshold:
                                     validPostOperation = True
                     if validPostOperation:
                         continue
