@@ -31,7 +31,6 @@ class Schedule:
              return 0.0
 
     def addSegment(self, segment):
-        print(segment.startTime, self.previousSegmentAddTime)
         if segment.startTime < self.previousSegmentAddTime:
             raise ValueError("Adding Segments not in Consecutive Order")
         self.previousSegmentAddTime = segment.startTime

@@ -114,9 +114,10 @@ class AlgoFIFO(AlgoBase):
         handleJobSubmission Placed Jobs in the queue, here we have to empty the 
         queue into the schedule before we analyze the schedule
         '''
-        for coreID in range(self.nCores):
-            while self.jobQueue[coreID].qsize() > 0:
-                self.scheduleThreadFromQueue(coreID)
+        nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
+        while (nextCore >= 0):
+            self.scheduleThreadFromQueue(nextCore)
+            nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
 
 
         if verbose:
@@ -148,7 +149,6 @@ class AlgoFIFO(AlgoBase):
             nextThread = self.jobQueue[coreID][0]
             nextThreadStart = max(self.currentSchedule.getExactEndTime(coreID), 
                            nextThread.submissionTime)
-            print("ealiest: ", earliestCore, earlistStartTime, "considering: ", coreID, nextThreadStart)
             if (nextThreadStart < earlistStartTime):
                 earlistStartTime = nextThreadStart
                 earliestCore = coreID
