@@ -145,7 +145,7 @@ class AlgoPriorityQueue(AlgoBase):
         return expectedQueueDuration
                 
 
-    def evaluateSchedule(self):
+    def evaluateSchedule(self, verbose=False):
         '''
         handleJobSubmission Placed Jobs in the queue, here we have to empty the 
         queue into the schedule before we analyze the schedule
@@ -154,8 +154,10 @@ class AlgoPriorityQueue(AlgoBase):
             while len(self.jobQueue[coreID]) > 0:
                 self.scheduleThreadFromHeapQueue(coreID)
 
-        self.currentSchedule.dump()
-        sp = SchedulePerformance(self.scheduledJobs, self.algoType, self.currentSchedule)
-        
-        print("\n\n")
+        if verbose:
+            self.currentSchedule.dump()
+        sp = SchedulePerformance(self.scheduledJobs, self.algoType, self.currentSchedule,
+                                 verbose=verbose)
+        if verbose:
+            print("\n\n")
         return sp

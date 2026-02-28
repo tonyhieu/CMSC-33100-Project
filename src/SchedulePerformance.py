@@ -3,10 +3,11 @@ BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
 
 class SchedulePerformance:
 
-    def __init__(self, scheduledJobs, algo, schedule=None):
+    def __init__(self, scheduledJobs, algo, schedule=None, verbose=False):
 
         self.algo = algo
         self.schedule = schedule
+        self.verbose = verbose
         self.efficiency = -1.0
         self.predictability = -1.0
         self.fairness = -1.0
@@ -24,8 +25,9 @@ class SchedulePerformance:
             totalWaitingTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
             totalWorkingTime += scheduledJob.getTotalRunningTime()
         
-        print("totalWaitingTime: ", totalWaitingTime)
-        print("totalWorkingTime: ", totalWorkingTime)
+        if self.verbose:
+            print("totalWaitingTime: ", totalWaitingTime)
+            print("totalWorkingTime: ", totalWorkingTime)
 
         self.efficiency = totalWorkingTime / totalWaitingTime
 
@@ -39,7 +41,8 @@ class SchedulePerformance:
                 raise ValueError("scheduledJob expectedFinishTime not set!")
             totalOffset += scheduledJob.getFinishTime() - scheduledJob.expectedFinishTime
 
-        print("totalOffset: ", totalOffset)
+        if self.verbose:
+            print("totalOffset: ", totalOffset)
 
         self.predictability = totalOffset / len(scheduledJobs)
 
