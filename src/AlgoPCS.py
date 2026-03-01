@@ -169,6 +169,35 @@ class AlgoPCS(AlgoBase):
         return (self.currentSchedule.getExactEndTime(coreID) <= submissionTime
                 and self.jobQueues[queueID][localIdx].qsize() == 0)
 
+    def getSlotNextToBeScheduled(self):
+        earliestStartTime = np.inf
+        bestQID = -1
+        bestLocal = -1
+        allQueuesEmpty = True
+        
+        for queueID in range(self.nQueues):
+            for localIdx in range(self.queueCoreAlloc[queueID]):
+                q = self.jobQueues[queueID][localIdx]
+                if q.qsize() == 0:
+                    continue
+                allQueuesEmpty = False
+                coreID = self._globalCoreID(queueID, localIdx)
+                if self.currentSchedule.isCoreBlocked(coreID) >= 0:
+                    continue
+                # Peek at the first item
+                nextThread = q.queue[0]
+                nextThreadStart = max(self.currentSchedule.getExactEndTime(coreID), nextThread.submissionTime)
+                if nextThreadStart < earliestStartTime:
+                    earliestStartTime = nextThreadStart
+                    bestQID = queueID
+                    bestLocal = localIdx
+
+        if allQueuesEmpty:
+            return -1, -1
+        if bestQID < 0:
+            return -2, -1
+        return bestQID, bestLocal
+
     # ── Main scheduling logic ─────────────────────────────────────────────
 
     def handleJobSubmission(self, job):
@@ -177,15 +206,18 @@ class AlgoPCS(AlgoBase):
         AlgoFIFO.handleJobSubmission but uses WFQ queue routing.
         """
         # ── Step 1: advance all per-core schedules up to submissionTime ───
-        for queueID in range(self.nQueues):
-            for localIdx in range(self.queueCoreAlloc[queueID]):
-                coreID = self._globalCoreID(queueID, localIdx)
-                endTime = self.currentSchedule.getExactEndTime(coreID)
-                while (self.jobQueues[queueID][localIdx].qsize() > 0
-                       and endTime < job.submissionTime):
-                    if self._scheduleFromSlot(queueID, localIdx) >= 0:
-                        break
-                    endTime = self.currentSchedule.getExactEndTime(coreID)
+        qid, lc = self.getSlotNextToBeScheduled()
+        if qid == -2:
+            raise ValueError("ALL SEGMENTS ARE BLOCKED")
+        while qid >= 0:
+            coreID = self._globalCoreID(qid, lc)
+            nextCoreEndTime = self.currentSchedule.getExactEndTime(coreID)
+            if nextCoreEndTime >= job.submissionTime:
+                break
+            self._scheduleFromSlot(qid, lc)
+            qid, lc = self.getSlotNextToBeScheduled()
+            if qid == -2:
+                raise ValueError("ALL SEGMENTS ARE BLOCKED")
 
         # ── Step 2: map job → WFQ queue ───────────────────────────────────
         qID = self._queueForJob(job)
@@ -256,19 +288,14 @@ class AlgoPCS(AlgoBase):
         Drain all per-core queues into the schedule, then compute and return
         a SchedulePerformance object.
         """
-        while True:
-            madeProgress = False
-            hasPending = False
-            for queueID in range(self.nQueues):
-                for localIdx in range(self.queueCoreAlloc[queueID]):
-                    if self.jobQueues[queueID][localIdx].qsize() > 0:
-                        hasPending = True
-                        if self._scheduleFromSlot(queueID, localIdx) < 0:
-                            madeProgress = True
-            if not hasPending:
-                break
-            if not madeProgress:
-                raise ValueError("all segments are blocked")
+        qid, lc = self.getSlotNextToBeScheduled()
+        if qid == -2:
+            raise ValueError("ALL SEGMENTS ARE BLOCKED")
+        while qid >= 0:
+            self._scheduleFromSlot(qid, lc)
+            qid, lc = self.getSlotNextToBeScheduled()
+            if qid == -2:
+                raise ValueError("ALL SEGMENTS ARE BLOCKED")
 
         if verbose:
             self.currentSchedule.dump()

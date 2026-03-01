@@ -35,12 +35,10 @@ class AlgoPriorityQueue(AlgoBase):
         segments have finished and nothing in the queue. This is handled by looking at 
         the jobQueue length
         '''
-        nextCore = self.getCoreNextToBeScheduled() #negative means all queue are emepty
-        nextCoreEndTime = self.currentSchedule.getExactEndTime(nextCore)
-        while (nextCore >= 0) and (nextCoreEndTime < job.submissionTime):
+        nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
+        while (nextCore >= 0) and (self.currentSchedule.getExactEndTime(nextCore) < job.submissionTime):
             self.scheduleThreadFromHeapQueue(nextCore)
-            nextCore = self.getCoreNextToBeScheduled() #negative means all queue are emepty
-            nextCoreEndTime = self.currentSchedule.getExactEndTime(nextCore)
+            nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
         '''
         we now add the current job's threads into the various priority queues, based on the 
         total running time accumulated in each core's queues
@@ -79,6 +77,8 @@ class AlgoPriorityQueue(AlgoBase):
             thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread)
             for subthread in (thread.subThreads):
                 tieCount = next(tieBreakingCounter)
+                subthread.priority = priority
+                subthread.tieBreaker = tieCount
                 heapq.heappush(self.jobQueue[earliestCore], (priority, tieCount, subthread))
                 subThreads[threadID].append(subthread)
                 threadPriorities[threadID].append(priority)
@@ -109,15 +109,19 @@ class AlgoPriorityQueue(AlgoBase):
         scheduledJob.setExpectedFinishTime(maximumExpectedFinishTime)
         self.scheduledJobs[job.id] = scheduledJob
 
-    def scheduleThreadFromHeapQueue(self, coreID):
+    def scheduleThreadFromHeapQueue(self, coreID, scheduleTime = None):
         if len(self.jobQueue[coreID]) == 0:
             raise ValueError("No Jobs in Queue to Schedule")
         if self.currentSchedule.isCoreBlocked(coreID) >= 0:
             return self.currentSchedule.isCoreBlocked(coreID)
         priority, tieCount, threadToSchedule = heapq.heappop(self.jobQueue[coreID])
         self.queueExpectedDuration[coreID] -= threadToSchedule.expectedLength
-        threadStartTime = max(self.currentSchedule.getExactEndTime(coreID), 
-                           threadToSchedule.submissionTime)
+        if scheduleTime is None:
+            threadStartTime = max(self.currentSchedule.getExactEndTime(coreID), 
+                               threadToSchedule.submissionTime)
+        else:
+            threadStartTime = max(scheduleTime, self.currentSchedule.getExactEndTime(coreID), 
+                               threadToSchedule.submissionTime)
         threadEndTime = threadStartTime + threadToSchedule.actualLength
         if (not np.isfinite(threadStartTime)):
             raise ValueError("Assignening an infinite start time!")
@@ -175,10 +179,13 @@ class AlgoPriorityQueue(AlgoBase):
         handleJobSubmission Placed Jobs in the queue, here we have to empty the 
         queue into the schedule before we analyze the schedule
         '''
-        nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
-        while (nextCore >= 0):
-            self.scheduleThreadFromHeapQueue(nextCore)
-            nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
+        nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
+        while (nextCore >= -1):
+            if nextCore >= 0:
+                self.scheduleThreadFromHeapQueue(nextCore)
+            else:
+                self.resolveDeadlock()
+            nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
 
         if verbose:
             self.currentSchedule.dump()
@@ -187,6 +194,56 @@ class AlgoPriorityQueue(AlgoBase):
         if verbose:
             print("\n\n")
         return sp
+
+    def resolveDeadlock(self):
+        '''
+        When all cores are blocked, we must gracefully preempt them. We pop the blocked 
+        segments, let the next pending threads run, and requeue the blocked threads with
+        a lower priority so they don't immediately lock the core again.
+        '''
+        globalTime = self.currentSchedule.previousSegmentAddTime
+        recovered = False
+        
+        for coreID in range(self.nCores):
+            if self.currentSchedule.isCoreBlocked(coreID) < 0:
+                continue
+                
+            removedSegment = self.currentSchedule.removeLastScheduledSegment(coreID)
+            removedSegment.startTime = -1.0
+            removedSegment.endTime = -1.0
+            removedSegment.expectedDuration = 0.0
+            
+            removedSubThreads = []
+            sameThread = True
+            while sameThread:
+                if len(self.jobQueue[coreID]) > 0:
+                    nextInQueue = self.jobQueue[coreID][0]
+                    if (nextInQueue[2].threadID == removedSegment.threadID) and \
+                               (nextInQueue[2].jobID == removedSegment.jobID):
+                        nextInQueue[2].submissionTime = globalTime
+                        nextInQueue = heapq.heappop(self.jobQueue[coreID])
+                        removedSubThreads.append(nextInQueue)
+                    else:
+                        sameThread = False
+                else:
+                    sameThread = False
+
+            if len(self.jobQueue[coreID]) > 0:
+                self.scheduleThreadFromHeapQueue(coreID, scheduleTime = globalTime)
+
+            originalSubThread = \
+                self.scheduledJobs[removedSegment.jobID].threads[removedSegment.threadID].subThreads[removedSegment.subThreadID]
+            originalSubThread.submissionTime = globalTime
+            
+            heapq.heappush(self.jobQueue[coreID], (originalSubThread.priority + 10.0, originalSubThread.tieBreaker, originalSubThread))
+            self.queueExpectedDuration[coreID] += originalSubThread.expectedLength
+            for priority, tieCount, removedSubThread in removedSubThreads:
+                heapq.heappush(self.jobQueue[coreID], (priority + 10.0, tieCount, removedSubThread))
+            
+            recovered = True
+            
+        if not recovered:
+            raise ValueError("ALL SEGMENTS ARE BLOCKED AND COULD NOT BE RESOLVED")
 
     def getCoreNextToBeScheduled(self):
         earlistStartTime = np.inf
@@ -198,20 +255,16 @@ class AlgoPriorityQueue(AlgoBase):
             allQueuesEmpty = False
             if self.currentSchedule.isCoreBlocked(coreID) >= 0:
                 continue
-            priroty, tieBreeaker, nextThread = heapq.heappop(self.jobQueue[coreID])
+            priroty, tieBreeaker, nextThread = self.jobQueue[coreID][0]
             nextThreadStart = max(self.currentSchedule.getExactEndTime(coreID), 
                            nextThread.submissionTime)
-            heapq.heappush(self.jobQueue[coreID], (priroty, tieBreeaker, nextThread))
             if (nextThreadStart < earlistStartTime):
                 earlistStartTime = nextThreadStart
                 earliestCore = coreID
         if allQueuesEmpty:
-            return -1
+            return -2
         if earliestCore < 0:
-            print("Dumping: ")
-            self.currentSchedule.dumpLasts()
-            self.dumpQueue()
-            raise ValueError("ALL SEGMENTS ARE BLOCKED")
+            return -1
         return earliestCore
 
     def dumpQueue(self):

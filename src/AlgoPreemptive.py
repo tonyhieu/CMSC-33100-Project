@@ -191,15 +191,16 @@ class AlgoPreemptive(AlgoBase):
         handleJobSubmission Placed Jobs in the queue, here we have to empty the 
         queue into the schedule before we analyze the schedule
         '''
-        nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
+        nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
         while (nextCore >= -1):
-            if nextCore < 0:
-                print("Dumping: ")
-                self.currentSchedule.dumpLasts()
-                #self.dumpQueue()
-                raise ValueError("ALL SEGMENTS ARE BLOCKED")
-            self.scheduleThreadFromHeapQueue(nextCore)
-            nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
+            if nextCore >= 0:
+                self.scheduleThreadFromHeapQueue(nextCore)
+            else:
+                recoveryTime = self.getBlockedRecoveryTime()
+                if recoveryTime is None:
+                    raise ValueError("ALL SEGMENTS ARE BLOCKED")
+                self.doPreemption(recoveryTime)
+            nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
             
 
         if verbose:
@@ -228,44 +229,58 @@ class AlgoPreemptive(AlgoBase):
             return -2
         return earliestCore
 
+    def getBlockedRecoveryTime(self):
+        foundBlocked = False
+        for coreID in range(self.nCores):
+            if self.currentSchedule.isCoreBlocked(coreID) >= 0:
+                foundBlocked = True
+        if not foundBlocked:
+            return None
+        return self.currentSchedule.previousSegmentAddTime
+
     def doPreemption(self, globalTime):
         '''
         Find cores that are waiting, stop those segments, 
         and schedule the next thread on the queue in its place
         '''
+        if globalTime is None:
+            raise ValueError("Trying to do preemption when global Time is None")
+            
         for coreID in range(self.nCores):
-            if self.currentSchedule.isCoreBlocked(coreID) >= 0:
-                if globalTime is None:
-                    raise ValueError("Trying to do preemption when global Time is None")
-                removedSegment = self.currentSchedule.removeLastScheduledSegment(coreID)
-                removedSegment.startTime = -1.0
-                removedSegment.endTime = -1.0
-                removedSegment.expectedDuration = 0.0
-                removedSubThreads = []
-                sameThread = True
-                while sameThread:
-                    if len(self.jobQueue[coreID]) > 0:
-                        nextInQueue = self.jobQueue[coreID][0]
-                        if (nextInQueue[2].threadID == removedSegment.threadID) and \
-                                    (nextInQueue[2].jobID == removedSegment.jobID):
-                            nextInQueue[2].submissionTime = globalTime
-                            nextInQueue = heapq.heappop(self.jobQueue[coreID])
-                            removedSubThreads.append(nextInQueue)
-                        else:
-                            sameThread = False
+            if self.currentSchedule.isCoreBlocked(coreID) < 0:
+                continue
+
+            removedSegment = self.currentSchedule.removeLastScheduledSegment(coreID)
+            removedSegment.startTime = -1.0
+            removedSegment.endTime = -1.0
+            removedSegment.expectedDuration = 0.0
+
+            removedSubThreads = []
+            sameThread = True
+            while sameThread:
+                if len(self.jobQueue[coreID]) > 0:
+                    nextInQueue = self.jobQueue[coreID][0]
+                    if (nextInQueue[2].threadID == removedSegment.threadID) and \
+                                (nextInQueue[2].jobID == removedSegment.jobID):
+                        nextInQueue[2].submissionTime = globalTime
+                        nextInQueue = heapq.heappop(self.jobQueue[coreID])
+                        removedSubThreads.append(nextInQueue)
                     else:
                         sameThread = False
+                else:
+                    sameThread = False
 
-                if len(self.jobQueue[coreID]) > 0:
-                    self.scheduleThreadFromHeapQueue(coreID, scheduleTime = globalTime)
+            if len(self.jobQueue[coreID]) > 0:
+                self.scheduleThreadFromHeapQueue(coreID, scheduleTime = globalTime)
 
-                originalSubThread = \
-                    self.scheduledJobs[removedSegment.jobID].threads[removedSegment.threadID].subThreads[removedSegment.subThreadID]
-                originalSubThread.submissionTime = globalTime
-                heapq.heappush(self.jobQueue[coreID], (originalSubThread.priority + 10., originalSubThread.tieBreaker, originalSubThread))
-                self.queueExpectedDuration[coreID] += originalSubThread.expectedLength
-                for priority, tieCount,removedSubThread in removedSubThreads:
-                    heapq.heappush(self.jobQueue[coreID], (priority + 10., tieCount,removedSubThread))
+            originalSubThread = \
+                self.scheduledJobs[removedSegment.jobID].threads[removedSegment.threadID].subThreads[removedSegment.subThreadID]
+            originalSubThread.submissionTime = globalTime
+            
+            heapq.heappush(self.jobQueue[coreID], (originalSubThread.priority + 10.0, originalSubThread.tieBreaker, originalSubThread))
+            self.queueExpectedDuration[coreID] += originalSubThread.expectedLength
+            for priority, tieCount, removedSubThread in removedSubThreads:
+                heapq.heappush(self.jobQueue[coreID], (priority + 10.0, tieCount, removedSubThread))
                     
 
 
