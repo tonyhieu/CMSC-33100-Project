@@ -30,7 +30,7 @@ class Semaphore:
 
     def postAtTime(self, globalTime):
         if globalTime < self.previousTime - Semaphore.floatPrecision:
-            raise ValueError("Jobs were not submited in order")
+            raise ValueError("Jobs were not submitted in order")
         self.postOperations.append((globalTime, self.previousValue))
         value = self.previousValue
         self.previousValue += 1
@@ -44,7 +44,7 @@ class Semaphore:
 
     def waitAtTime(self, globalTime, jobID, threadID, subThreadID):
         if globalTime < self.previousTime - Semaphore.floatPrecision:
-            raise ValueError("Jobs were not submited in order")
+            raise ValueError("Jobs were not submitted in order")
         self.waitOperations.append((globalTime, self.previousValue, jobID, threadID, subThreadID))
         val = self.previousValue
         self.previousValue -= 1
