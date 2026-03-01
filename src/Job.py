@@ -21,6 +21,12 @@ class Job:
         if len(threads) > 0:
             if len(threads) != nThreads:
                 raise ValueError("the list threads must have length nThreads")
+            if len(synchronizedThreads) > 0 and len(synchronizedThreads) != nThreads:
+                raise ValueError("the list synchronizedThreads must have length nThreads")
+            if len(synchronizedThreads) > 0:
+                self.synchronizedThreads = synchronizedThreads
+            else:
+                self.synchronizedThreads = [[] for _ in range(nThreads)]
             self.threads = threads
         else:
             if len(expectedLengths) != nThreads:

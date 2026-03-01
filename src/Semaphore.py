@@ -1,5 +1,4 @@
 from enum import Enum
-import numpy as np
 from collections import deque
 
 class SemOperation(Enum):
@@ -39,6 +38,8 @@ class Semaphore:
         self.previousValue += 1
         self.previousTime = globalTime
         if value < 0:
+            if len(self.waiting) == 0:
+                raise ValueError("Semaphore state is inconsistent: negative value with no waiting threads")
             freedSegment = self.waiting.popleft()
             return PostResult(True, freedSegment[0], freedSegment[1], freedSegment[2])
         return PostResult(False, -1, -1, -1)

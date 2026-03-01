@@ -188,33 +188,55 @@ class AlgoPCS(AlgoBase):
         # (core finished + no pending threads) and would start earlier, use it.
         threadExpectedEndTimes = np.zeros(job.nThreads)
 
+        coreRestrictions = {}
         for tIdx, thread in enumerate(job.threads):
-            for stIDx, subthread in enumerate(self.breakThreadIntoSubThreads(thread)):
+            badCores = coreRestrictions[tIdx] if tIdx in coreRestrictions else []
 
-                # Evaluate all of qID's own slots
-                bestQID = qID
-                bestLocal = min(range(self.queueCoreAlloc[qID]),
-                                key=lambda lc: self._expectedStartTime(qID, lc,
-                                                                    job.submissionTime))
-                bestEst = self._expectedStartTime(qID, bestLocal, job.submissionTime)
+            # Evaluate all of qID's own slots
+            bestQID = -1
+            bestLocal = -1
+            bestEst = np.inf
+            for lc in range(self.queueCoreAlloc[qID]):
+                coreID = self._globalCoreID(qID, lc)
+                if coreID in badCores:
+                    continue
+                est = self._expectedStartTime(qID, lc, job.submissionTime)
+                if est < bestEst:
+                    bestEst = est
+                    bestLocal = lc
+                    bestQID = qID
 
-                # Work conservation: check idle slots in other queues
-                for otherQID in range(self.nQueues):
-                    if otherQID == qID:
+            # Work conservation: check idle slots in other queues
+            for otherQID in range(self.nQueues):
+                if otherQID == qID:
+                    continue
+                for lc in range(self.queueCoreAlloc[otherQID]):
+                    coreID = self._globalCoreID(otherQID, lc)
+                    if coreID in badCores:
                         continue
-                    for lc in range(self.queueCoreAlloc[otherQID]):
-                        if self._isTrulyIdle(otherQID, lc, job.submissionTime):
-                            est = self._expectedStartTime(otherQID, lc,
-                                                        job.submissionTime)
-                            if est < bestEst:
-                                bestEst = est
-                                bestLocal = lc
-                                bestQID = otherQID
+                    if self._isTrulyIdle(otherQID, lc, job.submissionTime):
+                        est = self._expectedStartTime(otherQID, lc,
+                                                      job.submissionTime)
+                        if est < bestEst:
+                            bestEst = est
+                            bestLocal = lc
+                            bestQID = otherQID
 
-                # Place thread in the chosen slot
+            if bestQID < 0 or bestLocal < 0:
+                raise ValueError("No legal core available for thread assignment")
+
+            chosenCoreID = self._globalCoreID(bestQID, bestLocal)
+            for syncedThread in job.synchronizedThreads[tIdx]:
+                if syncedThread in coreRestrictions:
+                    coreRestrictions[syncedThread].append(chosenCoreID)
+                else:
+                    coreRestrictions[syncedThread] = [chosenCoreID]
+
+            thread.subThreads = self.breakThreadIntoSubThreads(thread)
+            for subthread in thread.subThreads:
                 self.jobQueues[bestQID][bestLocal].put(subthread)
-                self.queueCoreExpDur[bestQID][bestLocal] += subthread.expectedLength
-                threadExpectedEndTimes[tIdx] = bestEst + subthread.expectedLength
+            self.queueCoreExpDur[bestQID][bestLocal] += thread.expectedLength
+            threadExpectedEndTimes[tIdx] = bestEst + thread.expectedLength
 
         # ── Step 4: register the job with its predicted finish time ───────
         scheduledJob = ScheduledJob(job)
