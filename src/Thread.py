@@ -16,7 +16,8 @@ class Thread:
         tempPosts = [(semPost[0], semPost[1], SemOperation.Post) for semPost in semPosts]
         tempWaits = [(semWait[0], semWait[1], SemOperation.Wait) for semWait in semWaits]
         #list of tuples (semID, time in thread it occurs, operation), sorted by time they occur to easily split into subthreads
-        self.semOperations = sorted(tempPosts + tempWaits, key=lambda op: op[1]) 
+        self.semOperations = sorted(tempPosts + tempWaits, key=lambda op: op[1])
+        self.subThreads = []
 
     def dump(self):
         print(f"---Thread {self.threadID:5} Has Length: {self.actualLength:8.3f} and Expected Length: {self.expectedLength:8.3f}")
@@ -40,6 +41,13 @@ class SubThread:
         self.threadID = thread.threadID
         self.jobID = thread.jobID
         self.submissionTime = thread.submissionTime
+
+        '''
+        used Only in Preemptive Priority Queue to maintain 
+        memory of queue position if forced to go back
+        '''
+        self.priority = -1.0 
+        self.tieBreaker = -1.0
 
         if ((startIndex == 0) and (len(thread.semOperations) > 0)):
             #start is the main thread start, end is a semaphore operation

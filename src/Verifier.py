@@ -99,7 +99,8 @@ class Verifier:
                 threadActualDurations[scheduledSegment.threadID] += scheduledSegment.endTime - scheduledSegment.startTime - scheduledSegment.waitingTime
             for simulatedThread in simulatedJob.threads:
                 if abs(simulatedThread.expectedLength - threadExpectedDurations[simulatedThread.threadID]) > Verifier.floatThreshold:
-                    print("segment expectedDuration not matching: ")
+                    print("segment expectedDuration not matching: ", simulatedThread.expectedLength, threadExpectedDurations[simulatedThread.threadID])
+                    print(scheduledJob)
                     return False
                 if abs(simulatedThread.actualLength - threadActualDurations[simulatedThread.threadID]) > Verifier.floatThreshold:
                     print("segment actualLength not matching: ", simulatedThread.actualLength, threadActualDurations[simulatedThread.threadID], simulatedThread.threadID, simulatedThread.jobID)
@@ -144,42 +145,42 @@ class Verifier:
             for segment in finishedAlgorithm.currentSchedule.schedule[coreID]:
                 if segment.start[2] == SemOperation.Wait:
                     semaphore = globalSemaphoreList[segment.start[0]]
-                    """
-                    check all post operations to make sure one makes sense
-                    """
                     validPostOperation = False
-                    for postOperation in semaphore.postOperations:
-                        if postOperation < segment.startTime:
-                            """
-                            no other wait operations can occur between them
-                            """
-                            waitInBetween = False
-                            for waitOperation in semaphore.waitOperations:
-                                if (waitOperation - segment.startTime) < Verifier.floatThreshold:
-                                    #this is the current wait operation 
-                                    continue
-                                elif (waitOperation > postOperation) and (waitOperation < segment.startTime):
-                                    waitInBetween = True
-                            if not waitInBetween:
+                    for waitOperation in semaphore.waitOperations:
+                        if abs(waitOperation[0] - segment.startTime) < Verifier.floatThreshold:
+                            '''
+                            this is our wait operation
+                            ''' 
+                            if waitOperation[1] > 0:
+                                '''
+                                there should be no waiting Time
+                                '''
                                 if segment.waitingTime == 0:
                                     validPostOperation = True
-                        else:
-                            """
-                            no other wait operations can occur between them
-                            """
-                            waitInBetween = False
-                            for waitOperation in semaphore.waitOperations:
-                                if (waitOperation - segment.startTime) < Verifier.floatThreshold:
-                                    #this is the current wait operation 
-                                    continue
-                                elif (waitOperation < postOperation) and (waitOperation > segment.startTime):
-                                    waitInBetween = True
-                            if not waitInBetween:
-                                expectedWaitTime = postOperation - segment.startTime
-                                if abs(segment.waitingTime - expectedWaitTime) < Verifier.floatThreshold:
-                                    validPostOperation = True
-                    if validPostOperation:
-                        continue
-                    else:
+                                else:
+                                    print("segment waiting time not 0")
+                                    return False
+                            else:
+                                '''
+                                -1 * (waitOperation[1] - 1) gives the number of posts required to free the seegment
+                                '''
+                                count = 0
+                                for postOperation in semaphore.postOperations:
+                                    if postOperation[0] > segment.startTime:
+                                        count += 1
+                                        if count == -1 * (waitOperation[1] - 1):
+                                            '''
+                                            this is the post that should free it
+                                            '''
+                                            expectedWaitTime = postOperation[0] - waitOperation[0]
+                                            if abs(segment.waitingTime - expectedWaitTime) > Verifier.floatThreshold:
+                                                print("segment waiting time not expected")
+                                                return False
+                                            else:
+                                                validPostOperation = True
+                                            break
+                            break 
+                    if not validPostOperation:
+                        print("no valid Post operation")
                         return False
         return True

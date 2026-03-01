@@ -8,6 +8,7 @@ class Schedule:
         self.globalSemaphoreList = globalSemaphoreList
         self.schedule = [[] for _ in range(self.nCores)]
         self.previousSegmentAddTime = 0.0
+        self.waiting = {}
 
     def getExactEndTime(self, coreID):
         if len(self.schedule[coreID]) > 0:
@@ -16,6 +17,10 @@ class Schedule:
              return 0.0
 
     def isCoreBlocked(self, coreID):
+        '''
+        returns the semaphore that is blocking a given core
+        -1 is not blocked
+        '''
         if len(self.schedule[coreID]) > 0:
             if self.schedule[coreID][-1].waiting:
                 return self.schedule[coreID][-1].start[0]
@@ -37,27 +42,39 @@ class Schedule:
         startOp = segment.start[2]
         endOp = segment.end[2]
         if startOp == SemOperation.Wait:
-            waitResult = self.globalSemaphoreList[segment.start[0]].waitAtTime(segment.startTime, segment.coreID, len(self.schedule[segment.coreID]))
+            waitResult = self.globalSemaphoreList[segment.start[0]].waitAtTime(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID)
             if waitResult:
                 segment.makeWait()
+                self.waiting[(segment.jobID, segment.threadID, segment.subThreadID)] = (segment.coreID, len(self.schedule[segment.coreID]))
         elif startOp == SemOperation.Post:
             postResult = self.globalSemaphoreList[segment.start[0]].postAtTime(segment.startTime)
             if postResult.freeing:
-                self.startWaitingSegment(postResult.coreID, postResult.entryID, segment.startTime)
+                self.startWaitingSegment(postResult.jobID, postResult.threadID, postResult.subThreadID, segment.startTime)
         self.schedule[segment.coreID].append(segment)
         return len(self.schedule[segment.coreID]) - 1
 
-    def startWaitingSegment(self, coreID, entryID, resumeTime):
-        return self.schedule[coreID][entryID].resumeAtTime(resumeTime)
+    def startWaitingSegment(self, jobID, threadID, subThreadID, resumeTime):
+        coreID, entryID = self.waiting[(jobID, threadID, subThreadID)]
+        self.schedule[coreID][entryID].resumeAtTime(resumeTime)
 
     def dump(self):
         for coreID in range(self.nCores):
-            print(f"Schedule on Core {coreID:5}:")
             for j, segment in enumerate(self.schedule[coreID]):
-                print(f"\tSegment {j:5} in Schedule:")
                 segment.dump()
+
+    def removeLastScheduledSegment(self, coreID):
+        if len(self.schedule[coreID]) < 0:
+            raise ValueError("Trying to Remove segments from empty schedule")
+        segment = self.schedule[coreID].pop()
+        del self.waiting[(segment.jobID, segment.threadID, segment.subThreadID)]
+        if segment.start[2] == SemOperation.Wait:
+            self.globalSemaphoreList[segment.start[0]].removeWait(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID)
+        return segment
 
     def dumpLasts(self):
         for coreID in range(self.nCores):
             print(f"Last Segment on Core {coreID:5}:")
-            self.schedule[coreID][-1].dump()
+            if len(self.schedule[coreID]) > 0:
+                self.schedule[coreID][-1].dump()
+            else:
+                print("core has nothing scheeduled")

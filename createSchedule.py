@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from src.AlgoFIFO import AlgoFIFO
+from src.AlgoPreemptive import AlgoPreemptive
 from src.AlgoPriorityQueue import AlgoPriorityQueue, PriorityType
 from src.AlgoPCS import AlgoPCS
 from src.Scheduler import Scheduler
@@ -12,6 +13,7 @@ class AlgoType(Enum):
     FIFO = "FIFO"
     PriorityQueue = "PriorityQueue"
     PCS = "PCS"
+    Preemptive = "Preemptive"
 
 def createSchedule():
     parser = ArgumentParser(description="Turn Simulated Jobs into a Schedule using chosen algorithm")
@@ -54,6 +56,8 @@ def createSchedule():
     match args.algorithm:
         case AlgoType.PriorityQueue:
             algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList)
+        case AlgoType.Preemptive:
+            algo = AlgoPreemptive(args.number, PriorityType.expectedLength, globalSemaphoreList)
         case AlgoType.FIFO:
             algo = AlgoFIFO(args.number, globalSemaphoreList)
         case AlgoType.PCS:

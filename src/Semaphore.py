@@ -9,10 +9,11 @@ class SemOperation(Enum):
 
 class PostResult:
 
-    def __init__(self, freeing, coreID, entryID):
+    def __init__(self, freeing, jobID, threadID, subThreadID):
         self.freeing = freeing
-        self.coreID = coreID
-        self.entryID = entryID
+        self.jobID = jobID
+        self.threadID = threadID
+        self.subThreadID = subThreadID
 
 class Semaphore:
     floatPrecision = 1e-3
@@ -30,27 +31,40 @@ class Semaphore:
     def postAtTime(self, globalTime):
         if globalTime < self.previousTime:
             raise ValueError("Jobs were not submited in order")
-        self.postOperations.append(globalTime)
+        self.postOperations.append((globalTime, self.previousValue))
         value = self.previousValue
         self.previousValue += 1
         self.previousTime = globalTime
         if value < 0:
             freedSegment = self.waiting.popleft()
-            return PostResult(True, freedSegment[0], freedSegment[1])
-        return PostResult(False, -1, -1)
+            return PostResult(True, freedSegment[0], freedSegment[1], freedSegment[2])
+        return PostResult(False, -1, -1, -1)
 
-    def waitAtTime(self, globalTime, coreID, entryID):
+    def waitAtTime(self, globalTime, jobID, threadID, subThreadID):
         if globalTime < self.previousTime:
             raise ValueError("Jobs were not submited in order")
-        self.waitOperations.append(globalTime)
+        self.waitOperations.append((globalTime, self.previousValue))
         val = self.previousValue
         self.previousValue -= 1
         self.previousTime = globalTime
         if val <= 0:
-            self.waiting.append((coreID, entryID))
+            self.waiting.append((jobID, threadID, subThreadID))
             return True
         return False
-        
+
+    def removeWait(self, globalTime, jobID, threadID, subThreadID):
+        self.previousValue += 1
+        self.waiting.remove((jobID, threadID, subThreadID))
+        for waitOperation in self.waitOperations:
+            if waitOperation[0] > globalTime:
+                raise ValueError("I hope this is not the case")
+            if abs(waitOperation[0] - globalTime) < Semaphore.floatPrecision:
+                self.waitOperations.remove(waitOperation)
+                break
+        for postOperation in self.postOperations:
+            if postOperation[0] > globalTime:
+                time, value = postOperation
+                postOperation = (time, value+1)
         
         
 
