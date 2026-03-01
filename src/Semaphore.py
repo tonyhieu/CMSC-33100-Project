@@ -15,6 +15,28 @@ class PostResult:
         self.threadID = threadID
         self.subThreadID = subThreadID
 
+class WaitOperation:
+
+    def __init__(self, time, value, jobID, threadID, subThreadID):
+        self.time = time
+        self.value = value
+        self.jobID = jobID
+        self.threadID = threadID
+        self.subThreadID = subThreadID
+    
+    def checkIfEqual(self, time, jobID, threadID, subThreadID):
+        if self.jobID != jobID:
+            return False
+        if self.threadID != threadID:
+            return False
+        if self.subThreadID != subThreadID:
+            return False
+        if abs(self.time - time) > Semaphore.floatPrecision:
+            return False
+        return True
+
+
+
 class Semaphore:
     floatPrecision = 1e-3
 
@@ -43,7 +65,7 @@ class Semaphore:
     def waitAtTime(self, globalTime, jobID, threadID, subThreadID):
         if globalTime < self.previousTime:
             raise ValueError("Jobs were not submited in order")
-        self.waitOperations.append((globalTime, self.previousValue))
+        self.waitOperations.append(WaitOperation(globalTime, self.previousValue, jobID, threadID, subThreadID))
         val = self.previousValue
         self.previousValue -= 1
         self.previousTime = globalTime
@@ -56,9 +78,9 @@ class Semaphore:
         self.previousValue += 1
         self.waiting.remove((jobID, threadID, subThreadID))
         for waitOperation in self.waitOperations:
-            if waitOperation[0] > globalTime:
-                raise ValueError("I hope this is not the case")
-            if abs(waitOperation[0] - globalTime) < Semaphore.floatPrecision:
+            if waitOperation.time > globalTime:
+                waitOperation.value += 1
+            if waitOperation.checkIfEqual(globalTime, jobID, threadID, subThreadID):
                 self.waitOperations.remove(waitOperation)
                 break
         for postOperation in self.postOperations:

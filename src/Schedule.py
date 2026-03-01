@@ -63,6 +63,7 @@ class Schedule:
                 segment.dump()
 
     def removeLastScheduledSegment(self, coreID):
+    
         if len(self.schedule[coreID]) < 0:
             raise ValueError("Trying to Remove segments from empty schedule")
         segment = self.schedule[coreID].pop()

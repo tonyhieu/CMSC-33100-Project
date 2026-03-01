@@ -140,6 +140,9 @@ class Verifier:
         return True
 
     def five(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
+        '''
+        5    Semaphore work as expected
+        '''
 
         for coreID in range(finishedAlgorithm.nCores):
             for segment in finishedAlgorithm.currentSchedule.schedule[coreID]:
@@ -147,11 +150,11 @@ class Verifier:
                     semaphore = globalSemaphoreList[segment.start[0]]
                     validPostOperation = False
                     for waitOperation in semaphore.waitOperations:
-                        if abs(waitOperation[0] - segment.startTime) < Verifier.floatThreshold:
+                        if waitOperation.checkIfEqual(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID):
                             '''
                             this is our wait operation
                             ''' 
-                            if waitOperation[1] > 0:
+                            if waitOperation.value > 0:
                                 '''
                                 there should be no waiting Time
                                 '''
@@ -162,17 +165,17 @@ class Verifier:
                                     return False
                             else:
                                 '''
-                                -1 * (waitOperation[1] - 1) gives the number of posts required to free the seegment
+                                -1 * (waitOperation.value - 1) gives the number of posts required to free the seegment
                                 '''
                                 count = 0
                                 for postOperation in semaphore.postOperations:
                                     if postOperation[0] > segment.startTime:
                                         count += 1
-                                        if count == -1 * (waitOperation[1] - 1):
+                                        if count == -1 * (waitOperation.value - 1):
                                             '''
                                             this is the post that should free it
                                             '''
-                                            expectedWaitTime = postOperation[0] - waitOperation[0]
+                                            expectedWaitTime = postOperation[0] - waitOperation.time
                                             if abs(segment.waitingTime - expectedWaitTime) > Verifier.floatThreshold:
                                                 print("segment waiting time not expected")
                                                 return False
