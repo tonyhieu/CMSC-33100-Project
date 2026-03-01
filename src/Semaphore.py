@@ -15,6 +15,9 @@ class PostResult:
         self.threadID = threadID
         self.subThreadID = subThreadID
 
+
+
+
 class Semaphore:
     floatPrecision = 1e-3
 
@@ -36,8 +39,6 @@ class Semaphore:
         self.previousValue += 1
         self.previousTime = globalTime
         if value < 0:
-            if len(self.waiting) == 0:
-                raise ValueError("Semaphore state is inconsistent: negative value with no waiting threads")
             freedSegment = self.waiting.popleft()
             return PostResult(True, freedSegment[0], freedSegment[1], freedSegment[2])
         return PostResult(False, -1, -1, -1)
@@ -52,7 +53,7 @@ class Semaphore:
         if val <= 0:
             self.waiting.append((jobID, threadID, subThreadID))
             return True
-        return False
+        return False      
 
     def removeWait(self, globalTime, jobID, threadID, subThreadID):
         self.previousValue += 1
@@ -83,4 +84,3 @@ class Semaphore:
                 self.waitOperations[i] = (time, value+1, waitJobID, waitThreadID, waitSubThreadID)
             
         
-

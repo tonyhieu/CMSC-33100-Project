@@ -48,7 +48,7 @@ class AlgoPreemptive(AlgoBase):
             nextCoreEndTime = self.currentSchedule.getExactEndTime(nextCore)
         if not (schedulingTime is None):
             self.doPreemption(schedulingTime)
-        elif nextCore == -1:
+        if nextCore == -1:
             raise ValueError("NO Submission occurred")
         '''
         we now add the current job's threads into the various priority queues, based on the 
@@ -151,7 +151,7 @@ class AlgoPreemptive(AlgoBase):
         element will be released
         plus the expected length of the queue
         '''
-        if self.queueExpectedDuration[coreID] < -1e-3:
+        if self.queueExpectedDuration[coreID] < -AlgoBase.floatPrecision:
             raise ValueError(f"queueExpectedDuration on core {coreID} is negative!")
         return self.getQueueReleaseTime(submissionTime, coreID) \
                 + self.queueExpectedDuration[coreID]
@@ -198,9 +198,7 @@ class AlgoPreemptive(AlgoBase):
                 self.currentSchedule.dumpLasts()
                 #self.dumpQueue()
                 raise ValueError("ALL SEGMENTS ARE BLOCKED")
-            # schedulingTime = self.getNextThreadStart(nextCore)
             self.scheduleThreadFromHeapQueue(nextCore)
-            # self.doPreemption(schedulingTime)
             nextCore = self.getCoreNextToBeScheduled() #negative means all queue are empty
             
 
@@ -264,10 +262,10 @@ class AlgoPreemptive(AlgoBase):
                 originalSubThread = \
                     self.scheduledJobs[removedSegment.jobID].threads[removedSegment.threadID].subThreads[removedSegment.subThreadID]
                 originalSubThread.submissionTime = globalTime
-                heapq.heappush(self.jobQueue[coreID], (originalSubThread.priority, originalSubThread.tieBreaker, originalSubThread))
+                heapq.heappush(self.jobQueue[coreID], (originalSubThread.priority + 10., originalSubThread.tieBreaker, originalSubThread))
                 self.queueExpectedDuration[coreID] += originalSubThread.expectedLength
-                for removedSubThread in removedSubThreads:
-                    heapq.heappush(self.jobQueue[coreID], removedSubThread)
+                for priority, tieCount,removedSubThread in removedSubThreads:
+                    heapq.heappush(self.jobQueue[coreID], (priority + 10., tieCount,removedSubThread))
                     
 
 
