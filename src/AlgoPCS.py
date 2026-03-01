@@ -140,18 +140,25 @@ class AlgoPCS(AlgoBase):
         if q.qsize() == 0:
             raise ValueError(f"Slot ({queueID}, {localIdx}) is empty.")
 
+        coreID = self._globalCoreID(queueID, localIdx)
+        blockedSemaphore = self.currentSchedule.isCoreBlocked(coreID)
+        if blockedSemaphore >= 0:
+            return blockedSemaphore
+
         thread = q.get()
         self.queueCoreExpDur[queueID][localIdx] -= thread.expectedLength
 
-        coreID = self._globalCoreID(queueID, localIdx)
         startTime = max(self.currentSchedule.getExactEndTime(coreID),
                         thread.submissionTime)
         endTime = startTime + thread.actualLength
+        if not np.isfinite(startTime):
+            raise ValueError("Assigning an infinite start time!")
 
         segID = self.scheduledJobs[thread.jobID].getNumberOfScheduledSegments()
         seg = Segment(segID, coreID, thread, startTime, endTime)
         self.scheduledJobs[thread.jobID].addSegment(seg)
         self.currentSchedule.addSegment(seg)
+        return -1
 
     def _isTrulyIdle(self, queueID, localIdx, submissionTime):
         """
@@ -176,7 +183,8 @@ class AlgoPCS(AlgoBase):
                 endTime = self.currentSchedule.getExactEndTime(coreID)
                 while (self.jobQueues[queueID][localIdx].qsize() > 0
                        and endTime < job.submissionTime):
-                    self._scheduleFromSlot(queueID, localIdx)
+                    if self._scheduleFromSlot(queueID, localIdx) >= 0:
+                        break
                     endTime = self.currentSchedule.getExactEndTime(coreID)
 
         # ── Step 2: map job → WFQ queue ───────────────────────────────────
@@ -248,10 +256,19 @@ class AlgoPCS(AlgoBase):
         Drain all per-core queues into the schedule, then compute and return
         a SchedulePerformance object.
         """
-        for queueID in range(self.nQueues):
-            for localIdx in range(self.queueCoreAlloc[queueID]):
-                while self.jobQueues[queueID][localIdx].qsize() > 0:
-                    self._scheduleFromSlot(queueID, localIdx)
+        while True:
+            madeProgress = False
+            hasPending = False
+            for queueID in range(self.nQueues):
+                for localIdx in range(self.queueCoreAlloc[queueID]):
+                    if self.jobQueues[queueID][localIdx].qsize() > 0:
+                        hasPending = True
+                        if self._scheduleFromSlot(queueID, localIdx) < 0:
+                            madeProgress = True
+            if not hasPending:
+                break
+            if not madeProgress:
+                raise ValueError("all segments are blocked")
 
         if verbose:
             self.currentSchedule.dump()

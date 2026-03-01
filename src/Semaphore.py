@@ -13,10 +13,25 @@ class PostResult:
         self.jobID = jobID
         self.threadID = threadID
         self.subThreadID = subThreadID
+class WaitOperation:
 
-
-
-
+    def __init__(self, time, value, jobID, threadID, subThreadID):
+        self.time = time
+        self.value = value
+        self.jobID = jobID
+        self.threadID = threadID
+        self.subThreadID = subThreadID
+    
+    def checkIfEqual(self, time, jobID, threadID, subThreadID):
+        if self.jobID != jobID:
+            return False
+        if self.threadID != threadID:
+            return False
+        if self.subThreadID != subThreadID:
+            return False
+        if abs(self.time - time) > Semaphore.floatPrecision:
+            return False
+        return True
 class Semaphore:
     floatPrecision = 1e-3
 
@@ -47,7 +62,7 @@ class Semaphore:
     def waitAtTime(self, globalTime, jobID, threadID, subThreadID):
         if globalTime < self.previousTime - Semaphore.floatPrecision:
             raise ValueError("Jobs were not submitted in order")
-        self.waitOperations.append((globalTime, self.previousValue, jobID, threadID, subThreadID))
+        self.waitOperations.append(WaitOperation(globalTime, self.previousValue, jobID, threadID, subThreadID))
         val = self.previousValue
         self.previousValue -= 1
         self.previousTime = globalTime
@@ -63,10 +78,7 @@ class Semaphore:
 
         removedWaitOperation = False
         for waitOperation in self.waitOperations:
-            if abs(waitOperation[0] - globalTime) < Semaphore.floatPrecision and \
-               waitOperation[2] == jobID and \
-               waitOperation[3] == threadID and \
-               waitOperation[4] == subThreadID:
+            if waitOperation.checkIfEqual(globalTime, jobID, threadID, subThreadID):
                 self.waitOperations.remove(waitOperation)
                 removedWaitOperation = True
                 break
@@ -80,8 +92,7 @@ class Semaphore:
                 self.postOperations[i] = (time, value+1)
 
         for i, waitOperation in enumerate(self.waitOperations):
-            if waitOperation[0] > globalTime + Semaphore.floatPrecision:
-                time, value, waitJobID, waitThreadID, waitSubThreadID = waitOperation
-                self.waitOperations[i] = (time, value+1, waitJobID, waitThreadID, waitSubThreadID)
+            if waitOperation.time > globalTime + Semaphore.floatPrecision:
+                waitOperation.value += 1
             
         
