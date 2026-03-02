@@ -14,12 +14,15 @@ OUTPUT_DIR="metrics_output"
 mkdir -p "$OUTPUT_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
+# Number of trials to average over
+NUM_TRIALS=10
+
 # Log file
 LOGFILE="$OUTPUT_DIR/metrics_${TIMESTAMP}.log"
 CSVFILE="$OUTPUT_DIR/metrics_${TIMESTAMP}.csv"
 
 # Initialize CSV file
-echo "experiment,algorithm,cores,jobs,uncertainty,avg_length,avg_threads,output" > "$CSVFILE"
+echo "experiment,algorithm,cores,jobs,uncertainty,avg_length,avg_threads,mutex_prob,sem_prob,trials,output" > "$CSVFILE"
 
 log() {
     echo -e "${GREEN}[$(date +%H:%M:%S)]${NC} $1" | tee -a "$LOGFILE"
@@ -50,41 +53,20 @@ if ! command -v python &> /dev/null; then
     fi
 fi
 
-# Function to run a single experiment
-run_experiment() {
-    local exp_name=$1
-    local algorithm=$2
-    local cores=$3
-    local jobs=$4
-    local uncertainty=$5
-    local avg_length=$6
-    local avg_threads=$7
-    
-    log "Running ${algorithm} with cores=${cores}, jobs=${jobs}, unc=${uncertainty}, len=${avg_length}, threads=${avg_threads}"
-    
-    # Generate jobs
-    python3 simulateJobList.py \
-        -n "$jobs" \
-        -t 1000 \
-        -l "$avg_length" \
-        -u "$uncertainty" \
-        --threads "$avg_threads" \
-        -o "$OUTPUT_DIR/temp_jobs.pkl" >> "$LOGFILE" 2>&1
-    
-    if [[ $? -ne 0 ]]; then
-        warn "Job generation failed"
-        return 1
-    fi
+# Function to run a single trial
+run_single_trial() {
+    local algorithm=$1
+    local cores=$2
+    local jobs_file=$3
     
     # Run algorithm
     local output=$(python3 createSchedule.py \
-        -i "$OUTPUT_DIR/temp_jobs.pkl" \
+        -i "$jobs_file" \
         -a "$algorithm" \
         -n "$cores" 2>&1)
     
     if [[ $? -ne 0 ]]; then
-        warn "Algorithm ${algorithm} failed"
-        echo "$exp_name,$algorithm,$cores,$jobs,$uncertainty,$avg_length,$avg_threads,FAILED" >> "$CSVFILE"
+        echo "FAILED"
         return 1
     fi
     
@@ -93,8 +75,97 @@ run_experiment() {
     local predictability=$(echo "$output" | grep "predictability:" | sed 's/.*predictability: *\([0-9.]*\).*/\1/')
     local fairness=$(echo "$output" | grep "fairness:" | sed 's/.*fairness: *\([0-9.]*\).*/\1/')
     
-    # Save to CSV
-    echo "$exp_name,$algorithm,$cores,$jobs,$uncertainty,$avg_length,$avg_threads,eff=$efficiency;pred=$predictability;fair=$fairness" >> "$CSVFILE"
+    echo "$efficiency $predictability $fairness"
+    return 0
+}
+
+# Function to run a single experiment with multiple trials
+run_experiment() {
+    local exp_name=$1
+    local algorithm=$2
+    local cores=$3
+    local jobs=$4
+    local uncertainty=$5
+    local avg_length=$6
+    local avg_threads=$7
+    local mutex_prob=${8:-0.0}
+    local sem_prob=${9:-0.0}
+    
+    log "Running ${algorithm} (${NUM_TRIALS} trials) with cores=${cores}, jobs=${jobs}, unc=${uncertainty}, len=${avg_length}, threads=${avg_threads}, mut=${mutex_prob}, sem=${sem_prob}"
+    
+    # Arrays to store results from all trials
+    local -a eff_values=()
+    local -a pred_values=()
+    local -a fair_values=()
+    local successful_trials=0
+    
+    # Run multiple trials
+    for trial in $(seq 1 $NUM_TRIALS); do
+        log "  Trial ${trial}/${NUM_TRIALS}..."
+        
+        # Generate jobs
+        python3 simulateJobList.py \
+            -n "$jobs" \
+            -t 1000 \
+            -l "$avg_length" \
+            -u "$uncertainty" \
+            --threads "$avg_threads" \
+            --mut "$mutex_prob" \
+            --sem "$sem_prob" \
+            -o "$OUTPUT_DIR/temp_jobs_trial${trial}.pkl" >> "$LOGFILE" 2>&1
+        
+        if [[ $? -ne 0 ]]; then
+            warn "Job generation failed for trial ${trial}"
+            continue
+        fi
+        
+        # Run the trial
+        local result=$(run_single_trial "$algorithm" "$cores" "$OUTPUT_DIR/temp_jobs_trial${trial}.pkl")
+        
+        if [[ "$result" == "FAILED" ]]; then
+            warn "Algorithm ${algorithm} failed on trial ${trial}"
+            continue
+        fi
+        
+        # Parse result
+        read -r eff pred fair <<< "$result"
+        
+        # Validate metrics are numbers
+        if [[ -n "$eff" ]] && [[ -n "$pred" ]] && [[ -n "$fair" ]]; then
+            eff_values+=("$eff")
+            pred_values+=("$pred")
+            fair_values+=("$fair")
+            ((successful_trials++))
+        fi
+    done
+    
+    # Check if we have any successful trials
+    if [[ $successful_trials -eq 0 ]]; then
+        warn "All trials failed for ${algorithm}"
+        echo "$exp_name,$algorithm,$cores,$jobs,$uncertainty,$avg_length,$avg_threads,$mutex_prob,$sem_prob,0,FAILED" >> "$CSVFILE"
+        return 1
+    fi
+    
+    # Calculate averages
+    local avg_eff=$(echo "${eff_values[@]}" | awk '{sum=0; for(i=1;i<=NF;i++) sum+=$i; print sum/NF}')
+    local avg_pred=$(echo "${pred_values[@]}" | awk '{sum=0; for(i=1;i<=NF;i++) sum+=$i; print sum/NF}')
+    local avg_fair=$(echo "${fair_values[@]}" | awk '{sum=0; for(i=1;i<=NF;i++) sum+=$i; print sum/NF}')
+    
+    # Calculate standard deviations
+    local std_eff=$(echo "${eff_values[@]}" | awk -v avg="$avg_eff" '{sum=0; for(i=1;i<=NF;i++) sum+=($i-avg)^2; print sqrt(sum/NF)}')
+    local std_pred=$(echo "${pred_values[@]}" | awk -v avg="$avg_pred" '{sum=0; for(i=1;i<=NF;i++) sum+=($i-avg)^2; print sqrt(sum/NF)}')
+    local std_fair=$(echo "${fair_values[@]}" | awk -v avg="$avg_fair" '{sum=0; for(i=1;i<=NF;i++) sum+=($i-avg)^2; print sqrt(sum/NF)}')
+    
+    log "  Completed ${successful_trials}/${NUM_TRIALS} trials successfully"
+    log "  Efficiency: ${avg_eff} ± ${std_eff}"
+    log "  Predictability: ${avg_pred} ± ${std_pred}"
+    log "  Fairness: ${avg_fair} ± ${std_fair}"
+    
+    # Save to CSV with averages
+    echo "$exp_name,$algorithm,$cores,$jobs,$uncertainty,$avg_length,$avg_threads,$mutex_prob,$sem_prob,$successful_trials,eff=${avg_eff};pred=${avg_pred};fair=${avg_fair};eff_std=${std_eff};pred_std=${std_pred};fair_std=${std_fair}" >> "$CSVFILE"
+    
+    # Clean up temporary job files
+    rm -f "$OUTPUT_DIR"/temp_jobs_trial*.pkl
     
     return 0
 }
@@ -149,6 +220,26 @@ experiment_vary_threads() {
     done
 }
 
+# Experiment 6: Vary mutex probability
+experiment_vary_mutex() {
+    log "=== Experiment 6: Varying Mutex Probability ==="
+    for mut in 0.0 0.1 0.2 0.3 0.5 0.7; do
+        for algo in FIFO PriorityQueue PCS Preemptive; do
+            run_experiment "vary_mutex" "$algo" 4 100 5 10 3 "$mut" 0.0
+        done
+    done
+}
+
+# Experiment 7: Vary semaphore probability
+experiment_vary_semaphore() {
+    log "=== Experiment 7: Varying Semaphore Probability ==="
+    for sem in 0.0 0.1 0.2 0.3 0.5 0.7; do
+        for algo in FIFO PriorityQueue PCS Preemptive; do
+            run_experiment "vary_semaphore" "$algo" 4 100 5 10 3 0.0 "$sem"
+        done
+    done
+}
+
 # Main execution
 main() {
     log "Starting metric gathering - output will be saved to $OUTPUT_DIR"
@@ -163,6 +254,8 @@ main() {
         experiment_vary_uncertainty
         experiment_vary_length
         experiment_vary_threads
+        experiment_vary_mutex
+        experiment_vary_semaphore
     else
         case "$1" in
             cores)
@@ -180,8 +273,14 @@ main() {
             threads)
                 experiment_vary_threads
                 ;;
+            mutex)
+                experiment_vary_mutex
+                ;;
+            semaphore)
+                experiment_vary_semaphore
+                ;;
             *)
-                echo "Usage: $0 [cores|jobs|uncertainty|length|threads]"
+                echo "Usage: $0 [cores|jobs|uncertainty|length|threads|mutex|semaphore]"
                 echo "  Run with no arguments to run all experiments"
                 exit 1
                 ;;

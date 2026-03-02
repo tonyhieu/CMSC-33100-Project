@@ -58,6 +58,8 @@ def load_csv_data(csv_file):
                 'uncertainty': int(row['uncertainty']),
                 'avg_length': int(row['avg_length']),
                 'avg_threads': int(row['avg_threads']),
+                'mutex_prob': float(row.get('mutex_prob', 0.0)),
+                'sem_prob': float(row.get('sem_prob', 0.0)),
                 'efficiency': metrics.get('eff'),
                 'predictability': metrics.get('pred'),
                 'fairness': metrics.get('fair')
@@ -80,7 +82,9 @@ def plot_experiment(experiment_name, experiment_data, output_dir):
         'vary_jobs': ('jobs', 'Number of Jobs'),
         'vary_uncertainty': ('uncertainty', 'Uncertainty'),
         'vary_length': ('avg_length', 'Average Job Length'),
-        'vary_threads': ('avg_threads', 'Average Thread Count')
+        'vary_threads': ('avg_threads', 'Average Thread Count'),
+        'vary_mutex': ('mutex_prob', 'Mutex Probability'),
+        'vary_semaphore': ('sem_prob', 'Semaphore Probability')
     }
     
     x_param, x_label = x_param_map.get(experiment_name, ('cores', 'Parameter'))
@@ -164,11 +168,11 @@ def plot_experiment(experiment_name, experiment_data, output_dir):
 
 def create_summary_plot(all_data, output_dir):
     """Create a summary plot comparing all experiments"""
-    fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+    fig, axes = plt.subplots(3, 3, figsize=(20, 16))
     fig.suptitle('Summary: All Experiments', fontsize=18, fontweight='bold')
     
     experiments = ['vary_cores', 'vary_jobs', 'vary_uncertainty', 
-                   'vary_length', 'vary_threads']
+                   'vary_length', 'vary_threads', 'vary_mutex', 'vary_semaphore']
     
     colors = {
         'FIFO': '#1f77b4',
@@ -192,6 +196,10 @@ def create_summary_plot(all_data, output_dir):
             x_param = 'avg_threads'
         elif x_param == 'length':
             x_param = 'avg_length'
+        elif x_param == 'mutex':
+            x_param = 'mutex_prob'
+        elif x_param == 'semaphore':
+            x_param = 'sem_prob'
         
         for algorithm, data_points in sorted(experiment_data.items()):
             sorted_points = sort_data_points(data_points, x_param)
@@ -213,8 +221,9 @@ def create_summary_plot(all_data, output_dir):
         ax.legend(loc='best', fontsize=8)
         ax.grid(True, alpha=0.3)
     
-    # Remove extra subplot
-    fig.delaxes(axes[1, 2])
+    # Remove extra subplots (we have 7 experiments, leaving 2 empty in 3x3 grid)
+    fig.delaxes(axes[2, 1])
+    fig.delaxes(axes[2, 2])
     
     plt.tight_layout()
     
