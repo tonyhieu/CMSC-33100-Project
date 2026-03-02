@@ -5,12 +5,13 @@ class Job:
     def __init__(self, jobID, 
                        submissionTime, 
                        nThreads, 
-                       threads = [], 
-                       actualLengths = [], 
-                       expectedLengths = [],
-                       semPosts = [],
-                       semWaits = [],
-                       synchronizedThreads=[]):#for each thread, list the threads that cannot share the same core because they are synchronized
+                       threads=None, 
+                       actualLengths=None, 
+                       expectedLengths=None,
+                       semPosts=None,
+                       semWaits=None,
+                       synchronizedThreads=None,
+                       demandFunction=None):#for each thread, list the threads that cannot share the same core because they are synchronized
         """
         constructor either needs a list of threads or
         lists of actualLengths, expectedLengths, semPosts, and semWaits
@@ -18,6 +19,15 @@ class Job:
         self.id = jobID
         self.nThreads = nThreads
         self.submissionTime = submissionTime
+        self.demandFunction = demandFunction
+
+        threads = [] if threads is None else threads
+        actualLengths = [] if actualLengths is None else actualLengths
+        expectedLengths = [] if expectedLengths is None else expectedLengths
+        semPosts = [] if semPosts is None else semPosts
+        semWaits = [] if semWaits is None  else semWaits
+        synchronizedThreads = [] if synchronizedThreads is None else synchronizedThreads
+
         if len(threads) > 0:
             if len(threads) != nThreads:
                 raise ValueError("the list threads must have length nThreads")
@@ -49,5 +59,34 @@ class Job:
         print(f"-------------Has {self.nThreads:5} Threads")
         for thread in self.threads:
             thread.dump()
-            
 
+    def getTotalExpectedLength(self):
+        return sum(thread.expectedLength for thread in self.threads)
+
+    def getDemandAt(self, allocation):
+        if allocation < 1:
+            raise ValueError("allocation must be >= 1")
+        demandFunction = getattr(self, "demandFunction", None)
+        if demandFunction:
+            nearest = max((a for a in demandFunction if a <= allocation), default=None)
+            if nearest is not None:
+                return demandFunction[nearest]
+        return self.getTotalExpectedLength() / allocation
+
+    def getDemandMin(self):
+        return self.getDemandAt(1)
+
+    def getEfficiencyAt(self, allocation):
+        # zeta(n) = demand_min / (n * demand(n))
+        return self.getDemandMin() / (allocation * self.getDemandAt(allocation))
+
+    def getAllocationCap(self, maxAllocation, zetaMin):
+        if maxAllocation < 1:
+            return 1
+        cap = 1
+        for allocation in range(1, maxAllocation + 1):
+            if self.getEfficiencyAt(allocation) >= zetaMin:
+                cap = allocation
+            else:
+                break
+        return cap

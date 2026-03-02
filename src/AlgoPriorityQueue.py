@@ -49,10 +49,7 @@ class AlgoPriorityQueue(AlgoBase):
         threadCores = [[] for _ in range(job.nThreads)]
         coreRestrictions = {}
         for threadID, thread in enumerate(job.threads):
-            if threadID in coreRestrictions:
-                badCores = coreRestrictions[threadID]
-            else:
-                badCores = []
+            badCores = coreRestrictions.get(threadID, [])
             #check core with earliest expected start time
             earliestCore = -1
             earliestQueueTime = np.inf
@@ -90,17 +87,17 @@ class AlgoPriorityQueue(AlgoBase):
         expected end time for the job by finding maximum thread end time
         """
         maximumExpectedFinishTime = 0.0
-        for theadID in range(job.nThreads):
-            for subThreadID, subthread in enumerate(subThreads[theadID]):
+        for threadID in range(job.nThreads):
+            for subThreadID, subthread in enumerate(subThreads[threadID]):
                 '''
                 the time the next element will be released plus 
                 the expected duration of all items with higher priority in the queue
                 plus the expected duration of the thread
                 '''
-                expectedFinishTime = self.getQueueReleaseTime(job.submissionTime, threadCores[theadID][subThreadID]) \
-                                        + self.getExpectedDurationUntilThread(threadCores[theadID][subThreadID], 
-                                                                        threadPriorities[theadID][subThreadID],
-                                                                        threadTieCounts[theadID][subThreadID]) \
+                expectedFinishTime = self.getQueueReleaseTime(job.submissionTime, threadCores[threadID][subThreadID]) \
+                                        + self.getExpectedDurationUntilThread(threadCores[threadID][subThreadID], \
+                                                                        threadPriorities[threadID][subThreadID],
+                                                                        threadTieCounts[threadID][subThreadID]) \
                                         + subthread.expectedLength
                 maximumExpectedFinishTime = max(maximumExpectedFinishTime, expectedFinishTime)                   
 
@@ -116,12 +113,16 @@ class AlgoPriorityQueue(AlgoBase):
             return self.currentSchedule.isCoreBlocked(coreID)
         priority, tieCount, threadToSchedule = heapq.heappop(self.jobQueue[coreID])
         self.queueExpectedDuration[coreID] -= threadToSchedule.expectedLength
+        globalFloor = self.currentSchedule.previousSegmentAddTime
         if scheduleTime is None:
-            threadStartTime = max(self.currentSchedule.getExactEndTime(coreID), 
-                               threadToSchedule.submissionTime)
+            threadStartTime = max(globalFloor,
+                                  self.currentSchedule.getExactEndTime(coreID), 
+                                  threadToSchedule.submissionTime)
         else:
-            threadStartTime = max(scheduleTime, self.currentSchedule.getExactEndTime(coreID), 
-                               threadToSchedule.submissionTime)
+            threadStartTime = max(scheduleTime,
+                                  globalFloor,
+                                  self.currentSchedule.getExactEndTime(coreID), 
+                                  threadToSchedule.submissionTime)
         threadEndTime = threadStartTime + threadToSchedule.actualLength
         if (not np.isfinite(threadStartTime)):
             raise ValueError("Assignening an infinite start time!")
@@ -157,20 +158,10 @@ class AlgoPriorityQueue(AlgoBase):
         go through queue, and add up the expected wait time of everything 
         that will be released before it (lower priority)
         """
-        if len(self.jobQueue[coreID]) == 0:
-            return expectedQueueDuration
-        priorityIndex = 0
-        notFound = True
-        while notFound:
-            priority, tieCount, thread = self.jobQueue[coreID][priorityIndex]
-            priorityIndex += 1
-            if threadPriority == priority:
-                if tieCount == threadTieCount:
-                    notFound = False
-                else:
-                    expectedQueueDuration += thread.expectedLength
-            else:
-                expectedQueueDuration += thread.expectedLength
+        for priority, tieCount, thread in self.jobQueue[coreID]:
+            if (threadPriority == priority) and (tieCount == threadTieCount):
+                break
+            expectedQueueDuration += thread.expectedLength
         return expectedQueueDuration
                 
 
@@ -203,6 +194,7 @@ class AlgoPriorityQueue(AlgoBase):
         '''
         globalTime = self.currentSchedule.previousSegmentAddTime
         recovered = False
+        coresToRecover = []
         
         for coreID in range(self.nCores):
             if self.currentSchedule.isCoreBlocked(coreID) < 0:
@@ -229,7 +221,7 @@ class AlgoPriorityQueue(AlgoBase):
                     sameThread = False
 
             if len(self.jobQueue[coreID]) > 0:
-                self.scheduleThreadFromHeapQueue(coreID, scheduleTime = globalTime)
+                coresToRecover.append(coreID)
 
             originalSubThread = \
                 self.scheduledJobs[removedSegment.jobID].threads[removedSegment.threadID].subThreads[removedSegment.subThreadID]
@@ -241,6 +233,17 @@ class AlgoPriorityQueue(AlgoBase):
                 heapq.heappush(self.jobQueue[coreID], (priority + 10.0, tieCount, removedSubThread))
             
             recovered = True
+
+        def recoveryStart(coreID):
+            if len(self.jobQueue[coreID]) == 0:
+                return np.inf
+            _, _, nextThread = self.jobQueue[coreID][0]
+            return max(globalTime,
+                       self.currentSchedule.getExactEndTime(coreID),
+                       nextThread.submissionTime)
+
+        for coreID in sorted(coresToRecover, key=recoveryStart):
+            self.scheduleThreadFromHeapQueue(coreID, scheduleTime=globalTime)
             
         if not recovered:
             raise ValueError("ALL SEGMENTS ARE BLOCKED AND COULD NOT BE RESOLVED")

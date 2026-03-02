@@ -13,6 +13,13 @@ class SimulatedJob(Job):
                        syncSemaphoreProbability,
                        mutSemaphoreProbability,
                        globalSemaphoreList):
+        totalExpectedLength = float(np.sum(expectedLengths))
+        demandFunction = {}
+        # demand(n) decreases with n, but with diminishing returns
+        for allocation in range(1, nThreads + 1):
+            scaledTime = totalExpectedLength / (allocation ** 0.7)
+            demandFunction[allocation] = max(1e-6, scaledTime)
+
         actualLengths = []
         for expectedLength in expectedLengths:
             #my first thought to sample only jobs with positive definite length, can probably be improved
@@ -60,7 +67,9 @@ class SimulatedJob(Job):
 
             useMutSemaphore = (random.random() < mutSemaphoreProbability)
             if useMutSemaphore:
-                semID = len(globalSemaphoreList) + 1
+                semID = len(globalSemaphoreList)
+                mutSem = Semaphore(semID, 1, jobID) #init to 1
+                globalSemaphoreList.append(mutSem)
                 nThreadsUsing = random.randint(2, nThreads) #number of threads that will use the semaphore
                 threadsUsing = random.sample(range(nThreads), nThreadsUsing) #samples thee threadIDs that use mutex
                 for threadID in threadsUsing:
@@ -81,8 +90,6 @@ class SimulatedJob(Job):
                         else:
                             latestMutexPostTime = min(semWaitTime, latestMutexPostTime)
                     postTime = random.uniform(waitTime, latestMutexPostTime)
-                    mutSem = Semaphore(semID, 1, jobID) #init to 1
-                    globalSemaphoreList.append(mutSem) 
                     semWaits[threadID].append((semID, waitTime))
                     semPosts[threadID].append((semID, postTime))
 
@@ -93,4 +100,5 @@ class SimulatedJob(Job):
                          expectedLengths=expectedLengths,
                          semPosts=semPosts,
                          semWaits=semWaits,
-                         synchronizedThreads=synchronizedThreads)
+                         synchronizedThreads=synchronizedThreads,
+                         demandFunction=demandFunction)

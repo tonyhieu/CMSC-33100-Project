@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from queue import Queue
+from collections import deque
 
 from .AlgoBase import AlgoBase
 from .SchedulePerformance import SchedulePerformance
@@ -50,11 +50,14 @@ class AlgoPCS(AlgoBase):
                  Defaults to [1, 2, 3, …] so each band covers one size step.
     """
 
-    def __init__(self, nCores, globalSemaphoreList, nQueues=2, W=1.0, thresholds=None):
+    def __init__(self, nCores, globalSemaphoreList, nQueues=2, W=1.0, thresholds=None, zetaMin=0.0):
         nQueues = max(1, min(nQueues, nCores))   # 1 ≤ nQueues ≤ nCores
+        if not 0.0 <= zetaMin <= 1.0:
+            raise ValueError(f"zetaMin must be between 0 and 1, got {zetaMin}")
         super().__init__("PCS", nCores, globalSemaphoreList)
         self.nQueues = nQueues
         self.W = W
+        self.zetaMin = zetaMin
 
         # ── Queue weights: w_k = exp(-k * W), normalised ─────────────────
         raw = [math.exp(-k * W) for k in range(nQueues)]
@@ -86,7 +89,7 @@ class AlgoPCS(AlgoBase):
 
         # ── Per-core thread FIFOs, indexed [queue][local_core_idx] ────────
         self.jobQueues = [
-            [Queue() for _ in range(alloc[k])]
+            [deque() for _ in range(alloc[k])]
             for k in range(nQueues)
         ]
         # Track total expected duration queued on each (queue, local_core) slot
@@ -131,13 +134,23 @@ class AlgoPCS(AlgoBase):
                    self.currentSchedule.getLastJobsExpectedEndTime(coreID))
         return base + self.queueCoreExpDur[queueID][localIdx]
 
+    def _getPreferredLocalsForJob(self, queueID, job):
+        maxAllocation = self.queueCoreAlloc[queueID]
+        allocationCap = job.getAllocationCap(maxAllocation, self.zetaMin)
+        slotStarts = [
+            (self._expectedStartTime(queueID, lc, job.submissionTime), lc)
+            for lc in range(maxAllocation)
+        ]
+        slotStarts.sort(key=lambda x: x[0])
+        return [lc for _, lc in slotStarts[:allocationCap]]
+
     def _scheduleFromSlot(self, queueID, localIdx):
         """
         Pop the head thread from slot (queueID, localIdx) and append a Segment
         to the schedule.
         """
         q = self.jobQueues[queueID][localIdx]
-        if q.qsize() == 0:
+        if len(q) == 0:
             raise ValueError(f"Slot ({queueID}, {localIdx}) is empty.")
 
         coreID = self._globalCoreID(queueID, localIdx)
@@ -145,7 +158,7 @@ class AlgoPCS(AlgoBase):
         if blockedSemaphore >= 0:
             return blockedSemaphore
 
-        thread = q.get()
+        thread = q.popleft()
         self.queueCoreExpDur[queueID][localIdx] -= thread.expectedLength
 
         startTime = max(self.currentSchedule.getExactEndTime(coreID),
@@ -167,7 +180,7 @@ class AlgoPCS(AlgoBase):
         """
         coreID = self._globalCoreID(queueID, localIdx)
         return (self.currentSchedule.getExactEndTime(coreID) <= submissionTime
-                and self.jobQueues[queueID][localIdx].qsize() == 0)
+                and len(self.jobQueues[queueID][localIdx]) == 0)
 
     def getSlotNextToBeScheduled(self):
         earliestStartTime = np.inf
@@ -178,14 +191,14 @@ class AlgoPCS(AlgoBase):
         for queueID in range(self.nQueues):
             for localIdx in range(self.queueCoreAlloc[queueID]):
                 q = self.jobQueues[queueID][localIdx]
-                if q.qsize() == 0:
+                if len(q) == 0:
                     continue
                 allQueuesEmpty = False
                 coreID = self._globalCoreID(queueID, localIdx)
                 if self.currentSchedule.isCoreBlocked(coreID) >= 0:
                     continue
                 # Peek at the first item
-                nextThread = q.queue[0]
+                nextThread = q[0]
                 nextThreadStart = max(self.currentSchedule.getExactEndTime(coreID), nextThread.submissionTime)
                 if nextThreadStart < earliestStartTime:
                     earliestStartTime = nextThreadStart
@@ -223,58 +236,62 @@ class AlgoPCS(AlgoBase):
         qID = self._queueForJob(job)
 
         # ── Step 3: assign each thread to the best available slot ─────────
-        # Primary slots: those owned by queue qID (FIFO guarantee).
+        # Allocation capping: prefer only the capped number of slots based on
+        # zeta(n) = demand_min / (n * demand(n)).
         # Work conservation: if any slot in another queue is *truly idle*
         # (core finished + no pending threads) and would start earlier, use it.
+        if self.zetaMin > 0.0 and getattr(job, 'demandFunction', None) is None:
+            import warnings
+            warnings.warn(
+                f"Job {job.id} has no demandFunction; --zetamin has no effect on it.",
+                stacklevel=2
+            )
         threadExpectedEndTimes = np.zeros(job.nThreads)
+        preferredLocals = self._getPreferredLocalsForJob(qID, job)
+        preferredSet = set(preferredLocals)
 
         coreRestrictions = {}
         for tIdx, thread in enumerate(job.threads):
-            badCores = coreRestrictions[tIdx] if tIdx in coreRestrictions else []
+            badCores = set(coreRestrictions.get(tIdx, []))
 
-            # Evaluate all of qID's own slots
-            bestQID = -1
-            bestLocal = -1
-            bestEst = np.inf
-            for lc in range(self.queueCoreAlloc[qID]):
-                coreID = self._globalCoreID(qID, lc)
-                if coreID in badCores:
-                    continue
-                est = self._expectedStartTime(qID, lc, job.submissionTime)
-                if est < bestEst:
-                    bestEst = est
-                    bestLocal = lc
-                    bestQID = qID
+            # Primary policy: enforce allocation cap by searching only preferred
+            # own-queue slots + truly-idle cross-queue slots.
+            # Fallback policy: if sync restrictions block all primary choices,
+            # allow non-preferred own-queue slots and non-idle cross-queue slots.
+            primaryCandidates = []
+            fallbackCandidates = []
 
-            # Work conservation: check idle slots in other queues
-            for otherQID in range(self.nQueues):
-                if otherQID == qID:
-                    continue
-                for lc in range(self.queueCoreAlloc[otherQID]):
-                    coreID = self._globalCoreID(otherQID, lc)
+            for checkQID in range(self.nQueues):
+                for checkLC in range(self.queueCoreAlloc[checkQID]):
+                    coreID = self._globalCoreID(checkQID, checkLC)
                     if coreID in badCores:
                         continue
-                    if self._isTrulyIdle(otherQID, lc, job.submissionTime):
-                        est = self._expectedStartTime(otherQID, lc,
-                                                      job.submissionTime)
-                        if est < bestEst:
-                            bestEst = est
-                            bestLocal = lc
-                            bestQID = otherQID
 
-            if bestQID < 0 or bestLocal < 0:
-                raise ValueError("No legal core available for thread assignment")
+                    est = self._expectedStartTime(checkQID, checkLC, job.submissionTime)
+                    
+                    if checkQID == qID:
+                        isPrimary = checkLC in preferredSet
+                    else:
+                        isPrimary = self._isTrulyIdle(checkQID, checkLC, job.submissionTime)
+
+                    if isPrimary:
+                        primaryCandidates.append((est, checkQID, checkLC))
+                    else:
+                        fallbackCandidates.append((est, checkQID, checkLC))
+
+            candidates = primaryCandidates if primaryCandidates else fallbackCandidates
+            if not candidates:
+                raise ValueError(f"No legal core available for thread assignment (job {job.id}, thread {tIdx})")
+
+            bestEst, bestQID, bestLocal = min(candidates)
 
             chosenCoreID = self._globalCoreID(bestQID, bestLocal)
             for syncedThread in job.synchronizedThreads[tIdx]:
-                if syncedThread in coreRestrictions:
-                    coreRestrictions[syncedThread].append(chosenCoreID)
-                else:
-                    coreRestrictions[syncedThread] = [chosenCoreID]
+                coreRestrictions.setdefault(syncedThread, []).append(chosenCoreID)
 
             thread.subThreads = self.breakThreadIntoSubThreads(thread)
             for subthread in thread.subThreads:
-                self.jobQueues[bestQID][bestLocal].put(subthread)
+                self.jobQueues[bestQID][bestLocal].append(subthread)
             self.queueCoreExpDur[bestQID][bestLocal] += thread.expectedLength
             threadExpectedEndTimes[tIdx] = bestEst + thread.expectedLength
 

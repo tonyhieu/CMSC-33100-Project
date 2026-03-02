@@ -32,24 +32,30 @@ class SchedulePerformance:
             print("totalWaitingTime: ", totalWaitingTime)
             print("totalWorkingTime: ", totalWorkingTime)
 
-        self.efficiency = totalWorkingTime / totalWaitingTime
-        
+        if totalWaitingTime <= 0.0:
+            self.efficiency = 0.0
+        else:
+            self.efficiency = totalWorkingTime / totalWaitingTime
+
     def calculateAvgJCT(self, scheduledJobs):
         jobCompletionTime = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
             jobCompletionTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
         
         self.AvgJCT = jobCompletionTime / len(scheduledJobs)
-        
+
 
     def calculatePredictability(self, scheduledJobs):
+        if len(scheduledJobs) == 0:
+            self.predictability = 0.0
+            return
 
         totalOffset = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
             if scheduledJob.expectedFinishTime < 0:
                 print(jobID, scheduledJob.expectedFinishTime)
                 raise ValueError("scheduledJob expectedFinishTime not set!")
-            totalOffset += scheduledJob.getFinishTime() - scheduledJob.expectedFinishTime
+            totalOffset += abs(scheduledJob.getFinishTime() - scheduledJob.expectedFinishTime)
 
         if self.verbose:
             print("totalOffset: ", totalOffset)
@@ -57,6 +63,9 @@ class SchedulePerformance:
         self.predictability = totalOffset / len(scheduledJobs)
 
     def calculateFairness(self, scheduledJobs):
+        if len(scheduledJobs) == 0:
+            self.fairness = 0.0
+            return
 
         totalWaitingTime = 0.0
         for jobID, scheduledJob in scheduledJobs.items():

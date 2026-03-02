@@ -1,4 +1,3 @@
-from .Segment import Segment
 from .Semaphore import SemOperation
 import os
 
@@ -62,7 +61,7 @@ class Schedule:
 
     def dump(self):
         for coreID in range(self.nCores):
-            for j, segment in enumerate(self.schedule[coreID]):
+            for segment in self.schedule[coreID]:
                 segment.dump()
 
     def removeLastScheduledSegment(self, coreID):
@@ -75,6 +74,11 @@ class Schedule:
         del self.waiting[(segment.jobID, segment.threadID, segment.subThreadID)]
         if segment.start[2] == SemOperation.Wait:
             self.globalSemaphoreList[segment.start[0]].removeWait(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID, segment.start[2])
+        latestStart = 0.0
+        for coreSchedule in self.schedule:
+            if len(coreSchedule) > 0:
+                latestStart = max(latestStart, coreSchedule[-1].startTime)
+        self.previousSegmentAddTime = latestStart
         return segment
 
     def dumpLasts(self):
