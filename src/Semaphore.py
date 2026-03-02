@@ -76,7 +76,9 @@ class Semaphore:
             return True
         return False      
 
-    def removeWait(self, globalTime, jobID, threadID, subThreadID):
+    def removeWait(self, globalTime, jobID, threadID, subThreadID, removedThreadStartCondition):
+        if removedThreadStartCondition != SemOperation.Wait:
+            raise ValueError("Can only change semaphore if reemoving a waiting thread")
         self.previousValue += 1
         if (jobID, threadID, subThreadID) in self.waiting:
             self.waiting.remove((jobID, threadID, subThreadID))

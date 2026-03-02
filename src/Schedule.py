@@ -1,5 +1,8 @@
 from .Segment import Segment
 from .Semaphore import SemOperation
+import os
+
+floatThreshold = float(os.getenv("FLOAT_PRECISION"))
 
 class Schedule:
 
@@ -36,7 +39,7 @@ class Schedule:
              return 0.0
 
     def addSegment(self, segment):
-        if segment.startTime < self.previousSegmentAddTime:
+        if segment.startTime < self.previousSegmentAddTime - floatThreshold:
             raise ValueError("Adding Segments not in Consecutive Order")
         self.previousSegmentAddTime = segment.startTime
         startOp = segment.start[2]
@@ -71,7 +74,7 @@ class Schedule:
             raise ValueError("trying to remove a segment that is not waiting")
         del self.waiting[(segment.jobID, segment.threadID, segment.subThreadID)]
         if segment.start[2] == SemOperation.Wait:
-            self.globalSemaphoreList[segment.start[0]].removeWait(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID)
+            self.globalSemaphoreList[segment.start[0]].removeWait(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID, segment.start[2])
         return segment
 
     def dumpLasts(self):
