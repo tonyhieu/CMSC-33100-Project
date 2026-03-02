@@ -8,3 +8,5 @@ __pycache__/
 
 metrics_output
 .DS_Store
+
+jobs.pkl
