@@ -21,12 +21,12 @@ class Job:
         self.submissionTime = submissionTime
         self.demandFunction = demandFunction
 
-        threads = threads or []
-        actualLengths = actualLengths or []
-        expectedLengths = expectedLengths or []
-        semPosts = semPosts or []
-        semWaits = semWaits or []
-        synchronizedThreads = synchronizedThreads or []
+        threads = [] if threads is None else threads
+        actualLengths = [] if actualLengths is None else actualLengths
+        expectedLengths = [] if expectedLengths is None else expectedLengths
+        semPosts = [] if semPosts is None else semPosts
+        semWaits = [] if semWaits is None  else semWaits
+        synchronizedThreads = [] if synchronizedThreads is None else synchronizedThreads
 
         if len(threads) > 0:
             if len(threads) != nThreads:
