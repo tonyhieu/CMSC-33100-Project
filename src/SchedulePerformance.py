@@ -3,7 +3,7 @@ BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
 
 class SchedulePerformance:
 
-    def __init__(self, scheduledJobs, algo, schedule=None, verbose=False):
+    def __init__(self, scheduledJobs, algo, schedule=None, verbose=False, ):
 
         self.algo = algo
         self.schedule = schedule
@@ -12,7 +12,10 @@ class SchedulePerformance:
         self.predictability = -1.0
         self.fairness = -1.0
         self.combined = -1.0
+        self.AvgJCT = -1.0
         
+        self.calculateAvgJCT(scheduledJobs)
+        self.calculatePredictability(scheduledJobs)
         self.calculateEfficiency(scheduledJobs)
         self.calculatePredictability(scheduledJobs)
         self.calculateFairness(scheduledJobs)
@@ -30,7 +33,14 @@ class SchedulePerformance:
             print("totalWorkingTime: ", totalWorkingTime)
 
         self.efficiency = totalWorkingTime / totalWaitingTime
-
+        
+    def calculateAvgJCT(self, scheduledJobs):
+        jobCompletionTime = 0.0
+        for jobID, scheduledJob in scheduledJobs.items():
+            jobCompletionTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
+        
+        self.AvgJCT = jobCompletionTime / len(scheduledJobs)
+        
 
     def calculatePredictability(self, scheduledJobs):
 
