@@ -28,5 +28,5 @@ class ScheduledJob(Job):
     def getTotalRunningTime(self):
         runningTime = 0.0
         for segment in self.scheduledSegments:
-            runningTime += segment.endTime - segment.startTime
+            runningTime += segment.endTime - segment.startTime - segment.waitingTime
         return runningTime

@@ -30,6 +30,14 @@ def simulateJobs():
                             type=float, 
                             default = 3., 
                             help="average number of threads for each job")
+    parser.add_argument("--mut", 
+                            type=float, 
+                            default = 0., 
+                            help="probability of having a mutex in a given job")
+    parser.add_argument("--sem", 
+                            type=float, 
+                            default = 0., 
+                            help="probability of having a semaphore")
 
     args = parser.parse_args()
 
@@ -46,6 +54,7 @@ def simulateJobs():
     sampledSubmissionTimes.sort()
     sampledThreadNumber = np.random.poisson(lam=averageThreadNumber - 1, size=n) + 1
     jobsList = []
+    globalSemaphoreList = []
 
     for i in range(n):
         #sample one job length per thread
@@ -54,12 +63,15 @@ def simulateJobs():
                               sampledSubmissionTimes[i],
                               sampledThreadNumber[i],
                               sampledIntervalLengths,
-                              jobLengthUncertainty)
+                              jobLengthUncertainty,
+                              args.sem,
+                              args.mut,
+                              globalSemaphoreList)
         newJob.dump()
         jobsList.append(newJob)
 
     with open(outputFileName, "wb") as f:
-        pickle.dump(jobsList, f)
+        pickle.dump((jobsList, globalSemaphoreList), f)
 
 if __name__ == "__main__":
     simulateJobs()
