@@ -269,10 +269,11 @@ class AlgoPCS(AlgoBase):
 
                     est = self._expectedStartTime(checkQID, checkLC, job.submissionTime)
                     
-                    if checkQID == qID:
-                        isPrimary = checkLC in preferredSet
-                    else:
-                        isPrimary = self._isTrulyIdle(checkQID, checkLC, job.submissionTime)
+                    isPrimary = False
+                    if checkQID == qID and (checkLC in preferredSet):
+                        isPrimary = True
+                    elif self._isTrulyIdle(checkQID, checkLC, job.submissionTime):
+                        isPrimary = True
 
                     if isPrimary:
                         primaryCandidates.append((est, checkQID, checkLC))
