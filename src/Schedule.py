@@ -64,9 +64,11 @@ class Schedule:
 
     def removeLastScheduledSegment(self, coreID):
     
-        if len(self.schedule[coreID]) < 0:
+        if len(self.schedule[coreID]) == 0:
             raise ValueError("Trying to Remove segments from empty schedule")
         segment = self.schedule[coreID].pop()
+        if not ((segment.jobID, segment.threadID, segment.subThreadID) in self.waiting):
+            raise ValueError("trying to remove a segment that is not waiting")
         del self.waiting[(segment.jobID, segment.threadID, segment.subThreadID)]
         if segment.start[2] == SemOperation.Wait:
             self.globalSemaphoreList[segment.start[0]].removeWait(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID)
