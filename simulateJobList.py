@@ -60,7 +60,7 @@ def simulateJobs():
         raise ValueError("No negative lengths!")
     for i in range(n):
         #sample one job length per thread
-        sampledIntervalLengths = np.random.poisson(lam=jobsThreadLengths[i], size=sampledThreadNumber[i])
+        sampledIntervalLengths = np.exp(np.random.normal(loc=np.log(jobsThreadLengths[i]), scale=np.log(jobLengthUncertainty) - 0.9, size=sampledThreadNumber[i]))
         newJob = SimulatedJob(i, 
                               sampledSubmissionTimes[i],
                               sampledThreadNumber[i],
