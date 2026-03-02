@@ -96,9 +96,9 @@ def plot_experiment(experiment_name, experiment_data, output_dir):
     
     # Define metrics to plot
     metrics = [
-        ('efficiency', 'Efficiency (Higher is Better)', axes[0]),
-        ('predictability', 'Predictability (Lower is Better)', axes[1]),
-        ('fairness', 'Fairness (Lower is Better)', axes[2])
+        ('efficiency', 'Efficiency', axes[0]),
+        ('predictability', 'Predictability', axes[1]),
+        ('fairness', 'JCT', axes[2])
     ]
     
     # Colors for each algorithm
