@@ -71,7 +71,7 @@ class AlgoPriorityQueue(AlgoBase):
             if self.priorityType == PriorityType.expectedLength:
                     #all subthreads get the same priority to ensure they run in order on the cores
                     priority = thread.expectedLength
-            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread)
+            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 10)
             for subthread in (thread.subThreads):
                 tieCount = next(tieBreakingCounter)
                 subthread.priority = priority
