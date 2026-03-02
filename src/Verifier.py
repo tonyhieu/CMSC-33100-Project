@@ -1,4 +1,9 @@
 from .Semaphore import SemOperation
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+floatThreshold = float(os.getenv("FLOAT_PRECISION"))
 
 class Verifier:
     '''
@@ -14,7 +19,6 @@ class Verifier:
 
             feel free to add and implement more test conditions
     '''
-    floatThreshold = 1e-3
 
     def __init__(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
         print("Verifying...")
@@ -98,11 +102,11 @@ class Verifier:
                 threadExpectedDurations[scheduledSegment.threadID] += scheduledSegment.expectedDuration
                 threadActualDurations[scheduledSegment.threadID] += scheduledSegment.endTime - scheduledSegment.startTime - scheduledSegment.waitingTime
             for simulatedThread in simulatedJob.threads:
-                if abs(simulatedThread.expectedLength - threadExpectedDurations[simulatedThread.threadID]) > Verifier.floatThreshold:
+                if abs(simulatedThread.expectedLength - threadExpectedDurations[simulatedThread.threadID]) > floatThreshold:
                     print("segment expectedDuration not matching: ", simulatedThread.expectedLength, threadExpectedDurations[simulatedThread.threadID])
                     print(scheduledJob)
                     return False
-                if abs(simulatedThread.actualLength - threadActualDurations[simulatedThread.threadID]) > Verifier.floatThreshold:
+                if abs(simulatedThread.actualLength - threadActualDurations[simulatedThread.threadID]) > floatThreshold:
                     print("segment actualLength not matching: ", simulatedThread.actualLength, threadActualDurations[simulatedThread.threadID], simulatedThread.threadID, simulatedThread.jobID)
                     return False
         return True
@@ -118,7 +122,7 @@ class Verifier:
         for coreID in range(finishedAlgorithm.nCores):
             prevSegmentEnd = 0.0
             for segment in finishedAlgorithm.currentSchedule.schedule[coreID]:
-                if segment.startTime < prevSegmentEnd - Verifier.floatThreshold:
+                if segment.startTime < prevSegmentEnd - floatThreshold:
                     print(segment.startTime, prevSegmentEnd)
                     return False
                 prevSegmentEnd = segment.endTime
@@ -133,7 +137,7 @@ class Verifier:
         '''
         for coreID in range(finishedAlgorithm.nCores):
             for segment in finishedAlgorithm.currentSchedule.schedule[coreID]:
-                if segment.startTime < simulatedJobs[segment.jobID].submissionTime - Verifier.floatThreshold:
+                if segment.startTime < simulatedJobs[segment.jobID].submissionTime - floatThreshold:
                     print(segment.startTime, simulatedJobs[segment.jobID].submissionTime)
                     return False
         
@@ -176,7 +180,7 @@ class Verifier:
                                             this is the post that should free it
                                             '''
                                             expectedWaitTime = postOperation[0] - waitOperation.time
-                                            if abs(segment.waitingTime - expectedWaitTime) > Verifier.floatThreshold:
+                                            if abs(segment.waitingTime - expectedWaitTime) > floatThreshold:
                                                 print("segment waiting time not expected")
                                                 return False
                                             else:

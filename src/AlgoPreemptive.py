@@ -8,6 +8,11 @@ import heapq
 import itertools
 from enum import Enum
 import numpy as np
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+floatPrecision = float(os.getenv("FLOAT_PRECISION"))
 
 """
 This is equivalent to prioritty queue but it removes jobs that 
@@ -151,7 +156,7 @@ class AlgoPreemptive(AlgoBase):
         element will be released
         plus the expected length of the queue
         '''
-        if self.queueExpectedDuration[coreID] < -AlgoBase.floatPrecision:
+        if self.queueExpectedDuration[coreID] < -floatPrecision:
             raise ValueError(f"queueExpectedDuration on core {coreID} is negative!")
         return self.getQueueReleaseTime(submissionTime, coreID) \
                 + self.queueExpectedDuration[coreID]

@@ -1,5 +1,11 @@
 from enum import Enum
 from collections import deque
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+floatPrecision = float(os.getenv("FLOAT_PRECISION"))
+
 
 class SemOperation(Enum):
     Post = "Post"
@@ -29,11 +35,10 @@ class WaitOperation:
             return False
         if self.subThreadID != subThreadID:
             return False
-        if abs(self.time - time) > Semaphore.floatPrecision:
+        if abs(self.time - time) > floatPrecision:
             return False
         return True
 class Semaphore:
-    floatPrecision = 1e-3
 
     def __init__(self, semID, initValue, jobID):
         self.semID = semID
@@ -46,7 +51,7 @@ class Semaphore:
         self.waitOperations = []
 
     def postAtTime(self, globalTime):
-        if globalTime < self.previousTime - Semaphore.floatPrecision:
+        if globalTime < self.previousTime - floatPrecision:
             raise ValueError("Jobs were not submitted in order")
         self.postOperations.append((globalTime, self.previousValue))
         value = self.previousValue
@@ -60,7 +65,7 @@ class Semaphore:
         return PostResult(False, -1, -1, -1)
 
     def waitAtTime(self, globalTime, jobID, threadID, subThreadID):
-        if globalTime < self.previousTime - Semaphore.floatPrecision:
+        if globalTime < self.previousTime - floatPrecision:
             raise ValueError("Jobs were not submitted in order")
         self.waitOperations.append(WaitOperation(globalTime, self.previousValue, jobID, threadID, subThreadID))
         val = self.previousValue
@@ -87,12 +92,12 @@ class Semaphore:
             raise ValueError("Could not find matching wait operation to remove")
 
         for i, postOperation in enumerate(self.postOperations):
-            if postOperation[0] > globalTime + Semaphore.floatPrecision:
+            if postOperation[0] > globalTime + floatPrecision:
                 time, value = postOperation
                 self.postOperations[i] = (time, value+1)
 
         for i, waitOperation in enumerate(self.waitOperations):
-            if waitOperation.time > globalTime + Semaphore.floatPrecision:
+            if waitOperation.time > globalTime + floatPrecision:
                 waitOperation.value += 1
             
         

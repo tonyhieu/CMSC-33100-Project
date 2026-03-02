@@ -3,7 +3,6 @@ from src import Schedule
 from .Thread import SubThread
 
 class AlgoBase(ABC):
-    floatPrecision = 1e-3
 
     def __init__(self, algoType, nCores, globalSemaphoreList):
         self.algoType = algoType
