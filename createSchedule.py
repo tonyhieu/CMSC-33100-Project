@@ -44,12 +44,19 @@ def createSchedule():
                               nargs="+",
                               default=None,
                               help="(PCS) per-queue lower-bound job sizes, e.g. --thresholds 1 3 6")
+    parser.add_argument("--zetamin",
+                              type=float,
+                              default=0.0,
+                              help="(PCS) efficiency cap threshold zeta_min in [0, 1]")
 
     parser.add_argument("-v", "--verbose",
                               action="store_true",
                               help="show full schedule dump, metrics breakdown, visualization, and verification")
 
     args = parser.parse_args()
+    if not 0.0 <= args.zetamin <= 1.0:
+        raise ValueError(f"--zetamin must be between 0 and 1, got {args.zetamin}")
+
     with open(args.input, "rb") as f:
         jobList, globalSemaphoreList = pickle.load(f)
 
@@ -62,7 +69,7 @@ def createSchedule():
             algo = AlgoFIFO(args.number, globalSemaphoreList)
         case AlgoType.PCS:
             algo = AlgoPCS(args.number, globalSemaphoreList, nQueues=args.nqueues, W=args.W,
-                           thresholds=args.thresholds)
+                           thresholds=args.thresholds, zetaMin=args.zetamin)
     scheduler = Scheduler(algo, jobList)
 
     scheduler.createSchedule()
