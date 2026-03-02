@@ -69,8 +69,12 @@ class SchedulePerformance:
 
         totalWaitingTime = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
+            totalSegmentRunningTime = 0.0
+            for segmentID, segment in enumerate(scheduledJob.scheduledSegments):
+                totalSegmentRunningTime += segment.endTime - segment.startTime
+            averageSegmentRunningTime = totalSegmentRunningTime / len(scheduledJob.scheduledSegments)
             totalWaitingTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
-        self.fairness = totalWaitingTime / len(scheduledJobs)
+        self.fairness = abs(totalWaitingTime - averageSegmentRunningTime) / len(scheduledJobs)
 
     def calculateCombined(self, scheduledJobs):
         self.combined = 0.0
@@ -110,4 +114,5 @@ class SchedulePerformance:
         print(f"{self.algo} Schedule Performance:")
         print(f"efficiency: {self.efficiency:8.3f}, predictability: {self.predictability:8.3f}")
         print(f"fairness: {self.fairness:8.3f}, combined: {self.combined:8.3f}")
+        print(f"AvgJCT: {self.AvgJCT:8.3f}")
         print()
