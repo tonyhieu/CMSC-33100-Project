@@ -17,7 +17,6 @@ class SchedulePerformance:
         self.calculateAvgJCT(scheduledJobs)
         self.calculatePredictability(scheduledJobs)
         self.calculateEfficiency(scheduledJobs)
-        self.calculatePredictability(scheduledJobs)
         self.calculateFairness(scheduledJobs)
         self.calculateCombined(scheduledJobs)
 
