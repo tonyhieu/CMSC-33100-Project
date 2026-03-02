@@ -142,6 +142,7 @@ def plot_experiment(experiment_name, experiment_data, output_dir):
         ax.set_xlabel(x_label, fontsize=12, fontweight='bold')
         ax.set_ylabel(metric_title.split('(')[0].strip(), fontsize=12, fontweight='bold')
         ax.set_title(metric_title, fontsize=11)
+        ax.set_yscale('log')
         ax.legend(loc='best', framealpha=0.9)
         ax.grid(True, alpha=0.3, linestyle='--')
         
@@ -208,6 +209,7 @@ def create_summary_plot(all_data, output_dir):
         ax.set_title(experiment.replace('_', ' ').title(), fontsize=12, fontweight='bold')
         ax.set_xlabel(x_param.replace('_', ' ').title(), fontsize=10)
         ax.set_ylabel('Efficiency', fontsize=10)
+        ax.set_yscale('log')
         ax.legend(loc='best', fontsize=8)
         ax.grid(True, alpha=0.3)
     
