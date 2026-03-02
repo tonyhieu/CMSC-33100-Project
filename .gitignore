@@ -5,3 +5,8 @@ __pycache__/
 .env
 .venv/
 *.egg-info/
+
+metrics_output
+.DS_Store
+
+jobs.pkl

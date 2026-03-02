@@ -135,14 +135,17 @@ class AlgoPCS(AlgoBase):
         return base + self.queueCoreExpDur[queueID][localIdx]
 
     def _getPreferredLocalsForJob(self, queueID, job):
-        maxAllocation = self.queueCoreAlloc[queueID]
-        allocationCap = job.getAllocationCap(maxAllocation, self.zetaMin)
+        # Allocation cap is computed against the job's own thread count, then clamped to
+        # the number of slots this queue actually owns.
+        ownSlots = self.queueCoreAlloc[queueID]
+        allocationCap = job.getAllocationCap(job.nThreads, self.zetaMin)
+        capInQueue = min(allocationCap, ownSlots)
         slotStarts = [
             (self._expectedStartTime(queueID, lc, job.submissionTime), lc)
-            for lc in range(maxAllocation)
+            for lc in range(ownSlots)
         ]
         slotStarts.sort(key=lambda x: x[0])
-        return [lc for _, lc in slotStarts[:allocationCap]]
+        return [lc for _, lc in slotStarts[:capInQueue]], allocationCap
 
     def _scheduleFromSlot(self, queueID, localIdx):
         """
@@ -247,19 +250,25 @@ class AlgoPCS(AlgoBase):
                 stacklevel=2
             )
         threadExpectedEndTimes = np.zeros(job.nThreads)
-        preferredLocals = self._getPreferredLocalsForJob(qID, job)
+        preferredLocals, allocationCap = self._getPreferredLocalsForJob(qID, job)
         preferredSet = set(preferredLocals)
+
+        # Track unique (queueID, localIdx) slots already given to this job so we
+        # can enforce the global allocationCap across own-queue AND cross-queue slots.
+        assignedSlots = set()
 
         coreRestrictions = {}
         for tIdx, thread in enumerate(job.threads):
             badCores = set(coreRestrictions.get(tIdx, []))
 
             # Primary policy: enforce allocation cap by searching only preferred
-            # own-queue slots + truly-idle cross-queue slots.
+            # own-queue slots + truly-idle cross-queue slots (up to allocationCap total).
             # Fallback policy: if sync restrictions block all primary choices,
             # allow non-preferred own-queue slots and non-idle cross-queue slots.
             primaryCandidates = []
             fallbackCandidates = []
+
+            slotsUsed = len(assignedSlots)
 
             for checkQID in range(self.nQueues):
                 for checkLC in range(self.queueCoreAlloc[checkQID]):
@@ -268,13 +277,16 @@ class AlgoPCS(AlgoBase):
                         continue
 
                     est = self._expectedStartTime(checkQID, checkLC, job.submissionTime)
-                    
-                    if checkQID == qID:
-                        isPrimary = checkLC in preferredSet
-                    else:
-                        isPrimary = self._isTrulyIdle(checkQID, checkLC, job.submissionTime)
 
-                    if isPrimary:
+                    slotKey = (checkQID, checkLC)
+                    alreadyMine = slotKey in assignedSlots
+
+                    isPolicyTarget = (
+                        (checkQID == qID and checkLC in preferredSet)
+                        or self._isTrulyIdle(checkQID, checkLC, job.submissionTime)
+                    )
+
+                    if alreadyMine or (isPolicyTarget and slotsUsed < allocationCap):
                         primaryCandidates.append((est, checkQID, checkLC))
                     else:
                         fallbackCandidates.append((est, checkQID, checkLC))
@@ -289,6 +301,7 @@ class AlgoPCS(AlgoBase):
             for syncedThread in job.synchronizedThreads[tIdx]:
                 coreRestrictions.setdefault(syncedThread, []).append(chosenCoreID)
 
+            assignedSlots.add((bestQID, bestLocal))
             thread.subThreads = self.breakThreadIntoSubThreads(thread)
             for subthread in thread.subThreads:
                 self.jobQueues[bestQID][bestLocal].append(subthread)
