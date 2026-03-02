@@ -102,7 +102,7 @@ run_experiment() {
 # Experiment 1: Vary cores
 experiment_vary_cores() {
     log "=== Experiment 1: Varying Cores ==="
-    for cores in 2 4 8 16; do
+    for cores in 2 4 8 16 32 64; do
         for algo in FIFO PriorityQueue PCS Preemptive; do
             run_experiment "vary_cores" "$algo" "$cores" 100 5 10 3
         done
@@ -112,7 +112,7 @@ experiment_vary_cores() {
 # Experiment 2: Vary number of jobs
 experiment_vary_jobs() {
     log "=== Experiment 2: Varying Number of Jobs ==="
-    for jobs in 50 100 200 500; do
+    for jobs in 50 100 200 500 1000 2000; do
         for algo in FIFO PriorityQueue PCS Preemptive; do
             run_experiment "vary_jobs" "$algo" 4 "$jobs" 5 10 3
         done
@@ -122,7 +122,7 @@ experiment_vary_jobs() {
 # Experiment 3: Vary uncertainty
 experiment_vary_uncertainty() {
     log "=== Experiment 3: Varying Uncertainty ==="
-    for unc in 0 5 10 20; do
+    for unc in 0 5 10 20 40 80; do
         for algo in FIFO PriorityQueue PCS Preemptive; do
             run_experiment "vary_uncertainty" "$algo" 4 100 "$unc" 10 3
         done
@@ -132,7 +132,7 @@ experiment_vary_uncertainty() {
 # Experiment 4: Vary average length
 experiment_vary_length() {
     log "=== Experiment 4: Varying Average Job Length ==="
-    for len in 5 10 20; do
+    for len in 5 10 20 40; do
         for algo in FIFO PriorityQueue PCS Preemptive; do
             run_experiment "vary_length" "$algo" 4 100 5 "$len" 3
         done
@@ -142,7 +142,7 @@ experiment_vary_length() {
 # Experiment 5: Vary threads
 experiment_vary_threads() {
     log "=== Experiment 5: Varying Average Thread Count ==="
-    for threads in 2 4 8; do
+    for threads in 2 4 8 16; do
         for algo in FIFO PriorityQueue PCS Preemptive; do
             run_experiment "vary_threads" "$algo" 4 100 5 10 "$threads"
         done
