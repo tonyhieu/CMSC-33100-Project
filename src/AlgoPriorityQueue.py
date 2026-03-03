@@ -2,6 +2,7 @@ from .AlgoBase import AlgoBase
 from .SchedulePerformance import SchedulePerformance
 from .ScheduledJob import ScheduledJob
 from .Segment import Segment
+from .Semaphore import SemOperation
 from .Job import Job
 import heapq
 import itertools
@@ -20,9 +21,10 @@ class AlgoPriorityQueue(AlgoBase):
         self.priorityType = priorityType
         self.jobQueue = [[] for _ in range(self.nCores)] #initialize list which heapq uses
         self.queueExpectedDuration = [0.0 for _ in range(self.nCores)]
+        self.semaphoreMapping = {i : [] for i in range(len(globalSemaphoreList))}
 
     def handleJobSubmission(self, job: Job):
-
+        print(job.id)
         '''
         we place ourselves in the moment of the scheduler right at this current
         jobs submission time 
@@ -81,6 +83,8 @@ class AlgoPriorityQueue(AlgoBase):
                 threadPriorities[threadID].append(priority)
                 threadTieCounts[threadID].append(tieCount)
                 threadCores[threadID].append(earliestCore)
+                if subthread.start[2] == SemOperation.Post:
+                    self.semaphoreMapping[subthread.start[0]].append((earliestCore))
             self.queueExpectedDuration[earliestCore] += thread.expectedLength
         """
         now that we added all of the threads to a queue, we need to calculate the 
@@ -133,7 +137,10 @@ class AlgoPriorityQueue(AlgoBase):
                           threadStartTime, 
                           threadEndTime)
         self.scheduledJobs[threadToSchedule.jobID].addSegment(segment)
-        self.currentSchedule.addSegment(segment) 
+        addResult = self.currentSchedule.addSegment(segment) #True is segment has to wait, change prioiry of all threads with a post
+        if addResult:
+            for mappedCore in self.semaphoreMapping[segment.start[0]]:
+                self.makePostsToWaitingSegmentsMoreUrgent(mappedCore, segment.jobID)
         return -1
 
     def getQueueFinishTime(self, submissionTime, coreID):
@@ -177,6 +184,7 @@ class AlgoPriorityQueue(AlgoBase):
         '''
         print("evaluating Scchedule")
         nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
+        print(len(self.jobQueue[nextCore]))
         while (nextCore >= -1):
             if nextCore >= 0:
                 self.scheduleThreadFromHeapQueue(nextCore)
@@ -315,10 +323,44 @@ class AlgoPriorityQueue(AlgoBase):
                     for queueElement in removedFromQueue:
                         heapq.heappush(self.jobQueue[coreID], queueElement)
 
+
         len7 = len(self.jobQueue[7])
-        while len(self.jobQueue[7]) > len7 - 10:
+        while len(self.jobQueue[7]) > max(0, len7 - 10):
             _, _, subThread = heapq.heappop(self.jobQueue[7])
             print(f"{len7 - len(self.jobQueue[7])}th On Core: {7} with priority: {subThread.priority:8.3f}")
             subThread.dump()
             print()
+
+
+    def makePostsToWaitingSegmentsMoreUrgent(self, coreID, jobID):
+        queueSizeBefore = len(self.jobQueue[coreID])
+        removedFromQueue = []
+        postThreads = []
+        while len(self.jobQueue[coreID]) > 0:
+            queueElement = heapq.heappop(self.jobQueue[coreID])
+            if (queueElement[2].jobID == jobID):
+                if queueElement[2].start[2] == SemOperation.Post:
+                    postThreads.append((queueElement[2].jobID, queueElement[2].threadID))
+            removedFromQueue.append(queueElement)
+        for queueElement in removedFromQueue:
+            if len(postThreads) == 0:
+                heapq.heappush(self.jobQueue[coreID], queueElement)
+                continue
+            matching = False
+            for postThread in postThreads:
+                if (queueElement[2].jobID == postThread[0]) and (queueElement[2].threadID == postThread[1]):
+                    matching = True
+                    break
+            if matching:
+                queueElement[2].priority = -1.0 #negative priority is urgent
+                heapq.heappush(self.jobQueue[coreID], (-1.0, queueElement[1], queueElement[2])) #negative priority is urgent
+            else:
+                heapq.heappush(self.jobQueue[coreID], queueElement)
+        
+        if (queueSizeBefore != len(self.jobQueue[coreID])):
+            print(queueSizeBefore, len(self.jobQueue[coreID]))
+            raise ValueError("Queue was not maintained")
+        
+
+
 
