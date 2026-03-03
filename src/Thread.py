@@ -117,7 +117,7 @@ class SubThread:
         
     def dump(self):
         print(f"---SubThread {self.subThreadID:5} Of Thread {self.threadID:5} Of Job {self.jobID:5} Has Length: {self.actualLength:8.3f} and Expected Length: {self.expectedLength:8.3f}")
-        print(f"Start: {self.start[2].name} To {self.start[0]:5} At {self.start[1]:8.3f}")
+        print(f"Start: {self.start[2].name} To Semaphore {self.start[0]:5} At {self.start[1]:8.3f}")
 
         
         

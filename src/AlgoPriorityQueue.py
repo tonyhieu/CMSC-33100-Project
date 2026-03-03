@@ -70,8 +70,8 @@ class AlgoPriorityQueue(AlgoBase):
                     coreRestrictions[syncedThread] = [earliestCore]
             if self.priorityType == PriorityType.expectedLength:
                     #all subthreads get the same priority to ensure they run in order on the cores
-                    priority = thread.expectedLength
-            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 1)
+                    priority = job.getTotalExpectedLength()
+            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 10)
             for subthread in (thread.subThreads):
                 tieCount = next(tieBreakingCounter)
                 subthread.priority = priority
@@ -158,10 +158,15 @@ class AlgoPriorityQueue(AlgoBase):
         go through queue, and add up the expected wait time of everything 
         that will be released before it (lower priority)
         """
-        for priority, tieCount, thread in self.jobQueue[coreID]:
-            if (threadPriority == priority) and (tieCount == threadTieCount):
+        removedFromQueue = []
+        while len(self.jobQueue[coreID]) > 0:
+            queueElement = heapq.heappop(self.jobQueue[coreID])
+            removedFromQueue.append(queueElement)
+            if (threadPriority == queueElement[0]) and (threadTieCount == queueElement[1]):
                 break
-            expectedQueueDuration += thread.expectedLength
+            expectedQueueDuration += queueElement[2].expectedLength
+        for queueElement in removedFromQueue:
+            heapq.heappush(self.jobQueue[coreID], queueElement)
         return expectedQueueDuration
                 
 
@@ -173,12 +178,11 @@ class AlgoPriorityQueue(AlgoBase):
         print("evaluating Scchedule")
         nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
         while (nextCore >= -1):
-            print(nextCore, len(self.jobQueue[nextCore]))
             if nextCore >= 0:
                 self.scheduleThreadFromHeapQueue(nextCore)
             else:
                 self.currentSchedule.dumpLasts()
-                self.dumpQueue()
+                self.dumpDeadlock()
                 raise ValueError("Deadlock!")
                 self.resolveDeadlock()
             nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
@@ -214,16 +218,19 @@ class AlgoPriorityQueue(AlgoBase):
             sameThread = True
             while sameThread:
                 if len(self.jobQueue[coreID]) > 0:
-                    nextInQueue = self.jobQueue[coreID][0]
+                    addBack = True
+                    nextInQueue = heapq.heappop(self.jobQueue[coreID])
                     if (nextInQueue[2].threadID == removedSegment.threadID) and \
                                (nextInQueue[2].jobID == removedSegment.jobID):
                         nextInQueue[2].submissionTime = globalTime
-                        nextInQueue = heapq.heappop(self.jobQueue[coreID])
                         removedSubThreads.append(nextInQueue)
+                        addBack = False
                     else:
                         sameThread = False
                 else:
                     sameThread = False
+                if addBack:
+                    heapq.heappush(self.jobQueue[coreID], nextInQueue)
 
             if len(self.jobQueue[coreID]) > 0:
                 coresToRecover.append(coreID)
@@ -242,10 +249,12 @@ class AlgoPriorityQueue(AlgoBase):
         def recoveryStart(coreID):
             if len(self.jobQueue[coreID]) == 0:
                 return np.inf
-            _, _, nextThread = self.jobQueue[coreID][0]
-            return max(globalTime,
+            priority, tie, nextThread = heapq.heappop(self.jobQueue[coreID])
+            ret =  max(globalTime,
                        self.currentSchedule.getExactEndTime(coreID),
                        nextThread.submissionTime)
+            heapq.heappush(self.jobQueue[coreID], (priority, tie, nextThread))
+            return ret
 
         for coreID in sorted(coresToRecover, key=recoveryStart):
             self.scheduleThreadFromHeapQueue(coreID, scheduleTime=globalTime)
@@ -263,9 +272,10 @@ class AlgoPriorityQueue(AlgoBase):
             allQueuesEmpty = False
             if self.currentSchedule.isCoreBlocked(coreID) >= 0:
                 continue
-            priroty, tieBreeaker, nextThread = self.jobQueue[coreID][0]
+            priroty, tieBreeaker, nextThread = heapq.heappop(self.jobQueue[coreID])
             nextThreadStart = max(self.currentSchedule.getExactEndTime(coreID), 
                            nextThread.submissionTime)
+            heapq.heappush(self.jobQueue[coreID], (priroty, tieBreeaker, nextThread))
             if (nextThreadStart < earlistStartTime):
                 earlistStartTime = nextThreadStart
                 earliestCore = coreID
@@ -278,7 +288,37 @@ class AlgoPriorityQueue(AlgoBase):
     def dumpQueue(self):
         for coreID, queue in enumerate(self.jobQueue):
             print(f"On Core {coreID:5}")
-            for _, _, subThread in self.jobQueue[coreID][:5]:
+            for i in range(5):
+                _, _, subThread = heapq.heappop(self.jobQueue[coreID])
                 subThread.dump()
-            if len(self.jobQueue[coreID]) > 5:
+            if len(self.jobQueue[coreID]) > 0:
                 print("....and more...")
+
+    def dumpDeadlock(self):
+        for coreSchedule in self.currentSchedule.schedule:
+            lastSegment = coreSchedule[-1]
+            if lastSegment.waiting:
+                print("\n\n\n\n")
+                lastSegment.dump()
+                print("Subthreads of the same job in queue:")
+                for coreID, queue in enumerate(self.jobQueue):
+                    removedFromQueue = []
+                    count = 0
+                    while len(self.jobQueue[coreID]) > 0:
+                        count += 1
+                        queueElement = heapq.heappop(self.jobQueue[coreID])
+                        if queueElement[2].jobID == lastSegment.jobID:
+                            print(f"{count}th On Core: {coreID} with priority: {queueElement[2].priority:8.3f} and {queueElement[0]:8.3f}")
+                            queueElement[2].dump()
+                            print()
+                        removedFromQueue.append(queueElement)
+                    for queueElement in removedFromQueue:
+                        heapq.heappush(self.jobQueue[coreID], queueElement)
+
+        len7 = len(self.jobQueue[7])
+        while len(self.jobQueue[7]) > len7 - 10:
+            _, _, subThread = heapq.heappop(self.jobQueue[7])
+            print(f"{len7 - len(self.jobQueue[7])}th On Core: {7} with priority: {subThread.priority:8.3f}")
+            subThread.dump()
+            print()
+

@@ -35,7 +35,7 @@ class Segment:
     def dump(self):
         print(f"\t\tSegment ID: {self.segmentID:5}, SubThread ID: {self.subThreadID:5}, Thread ID: {self.threadID:5} of JobID: {self.jobID:5} running on Core: {self.coreID:5}")
         if self.waiting:
-            print(f"\t\tWaiting on {self.start[2].name} To {self.start[0]:5} At {self.start[1]:8.3f}")
+            print(f"\t\tWaiting on {self.start[2].name} To Semaphore {self.start[0]:5} At {self.start[1]:8.3f}")
         else:
             print(f"\t\tStarts At: {self.startTime:8.3f} and Finishes at {self.endTime:8.3f}")
         print()
