@@ -16,15 +16,15 @@ class AlgoBase(ABC):
     def breakThreadIntoSubThreads(cls, thread, nSubThreads):
         if nSubThreads < 1:
             raise ValueError("We need at least one subthread")
-        threadBreaks = np.linspace(0.0, thread.actualLength, nSubThreads)
+        threadBreaks = np.linspace(0.0, thread.actualLength, nSubThreads + 1)
         subThreadID = 0
         subThreadStart = 0.0
         subThreads = []
         for threadBreak in threadBreaks[1:]:
-            
-            if thread.semaphoreInWindow(subThreadStart, threadBreak):
-                subThreads.append(thread.splitWindowBySemaphores(subThreadStart, threadBreak, subThreadID))
-                subThreadID += len(subthreads)
+            numberSemaphoresInWindow = thread.numberSemaphoresInWindow(subThreadStart, threadBreak)
+            if numberSemaphoresInWindow:
+                subThreads += thread.splitWindowBySemaphores(subThreadStart, threadBreak, subThreadID)
+                subThreadID += numberSemaphoresInWindow + 1
             else:
                 expectedLength = thread.expectedLength * (threadBreak - subThreadStart) / thread.actualLength
                 subThreads.append(SubThread(subThreadID, 

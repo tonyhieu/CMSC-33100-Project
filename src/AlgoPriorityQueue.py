@@ -71,7 +71,7 @@ class AlgoPriorityQueue(AlgoBase):
             if self.priorityType == PriorityType.expectedLength:
                     #all subthreads get the same priority to ensure they run in order on the cores
                     priority = thread.expectedLength
-            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 10)
+            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 1)
             for subthread in (thread.subThreads):
                 tieCount = next(tieBreakingCounter)
                 subthread.priority = priority
@@ -125,7 +125,7 @@ class AlgoPriorityQueue(AlgoBase):
                                   threadToSchedule.submissionTime)
         threadEndTime = threadStartTime + threadToSchedule.actualLength
         if (not np.isfinite(threadStartTime)):
-            raise ValueError("Assignening an infinite start time!")
+            raise ValueError("Assigning an infinite start time!")
         segmentID = self.scheduledJobs[threadToSchedule.jobID].getNumberOfScheduledSegments()
         segment = Segment(segmentID,
                           coreID, 
@@ -170,11 +170,16 @@ class AlgoPriorityQueue(AlgoBase):
         handleJobSubmission Placed Jobs in the queue, here we have to empty the 
         queue into the schedule before we analyze the schedule
         '''
+        print("evaluating Scchedule")
         nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
         while (nextCore >= -1):
+            print(nextCore, len(self.jobQueue[nextCore]))
             if nextCore >= 0:
                 self.scheduleThreadFromHeapQueue(nextCore)
             else:
+                self.currentSchedule.dumpLasts()
+                self.dumpQueue()
+                raise ValueError("Deadlock!")
                 self.resolveDeadlock()
             nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
 
@@ -273,5 +278,7 @@ class AlgoPriorityQueue(AlgoBase):
     def dumpQueue(self):
         for coreID, queue in enumerate(self.jobQueue):
             print(f"On Core {coreID:5}")
-            for _, _, subThread in self.jobQueue[coreID]:
+            for _, _, subThread in self.jobQueue[coreID][:5]:
                 subThread.dump()
+            if len(self.jobQueue[coreID]) > 5:
+                print("....and more...")

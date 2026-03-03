@@ -67,7 +67,6 @@ class AlgoFIFO(AlgoBase):
 
             thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 10)
             for subthread in (thread.subThreads):
-                
                 self.jobQueue[earliestCore].append(subthread)
             self.queueExpectedDuration[earliestCore] += thread.expectedLength
             threadExpectedEndTimes[threadID] = earliestExpectedStartTime + thread.expectedLength
