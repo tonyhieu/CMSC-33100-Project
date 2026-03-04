@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from src.AlgoFIFO import AlgoFIFO
 from src.AlgoPreemptive import AlgoPreemptive
-from src.AlgoPriorityQueue import AlgoPriorityQueue, PriorityType
+from src.AlgoPreemptivePriorityQueue import AlgoPreemptivePriorityQueue, PriorityType
 from src.AlgoPCS import AlgoPCS
 from src.Scheduler import Scheduler
 import pickle
@@ -11,7 +11,7 @@ from src.Verifier import Verifier
 
 class AlgoType(Enum):
     FIFO = "FIFO"
-    PriorityQueue = "PriorityQueue"
+    PPQ = "PPQ"
     PCS = "PCS"
     Preemptive = "Preemptive"
 
@@ -61,8 +61,8 @@ def createSchedule():
         jobList, globalSemaphoreList = pickle.load(f)
 
     match args.algorithm:
-        case AlgoType.PriorityQueue:
-            algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList)
+        case AlgoType.PPQ:
+            algo = AlgoPreemptivePriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList)
         case AlgoType.Preemptive:
             algo = AlgoPreemptive(args.number, PriorityType.expectedLength, globalSemaphoreList)
         case AlgoType.FIFO:

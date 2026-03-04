@@ -302,7 +302,7 @@ class AlgoPCS(AlgoBase):
                 coreRestrictions.setdefault(syncedThread, []).append(chosenCoreID)
 
             assignedSlots.add((bestQID, bestLocal))
-            thread.subThreads = self.breakThreadIntoSubThreads(thread)
+            thread.subThreads = self.breakThreadIntoSubThreads(thread, 10)
             for subthread in thread.subThreads:
                 self.jobQueues[bestQID][bestLocal].append(subthread)
             self.queueCoreExpDur[bestQID][bestLocal] += thread.expectedLength

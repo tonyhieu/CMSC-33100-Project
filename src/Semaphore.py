@@ -52,6 +52,7 @@ class Semaphore:
 
     def postAtTime(self, globalTime):
         if globalTime < self.previousTime - floatPrecision:
+            print(globalTime, self.previousTime)
             raise ValueError("Jobs were not submitted in order")
         self.postOperations.append((globalTime, self.previousValue))
         value = self.previousValue

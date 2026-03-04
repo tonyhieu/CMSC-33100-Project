@@ -1,7 +1,7 @@
 from .AlgoBase import AlgoBase
 from .SchedulePerformance import SchedulePerformance
 from .ScheduledJob import ScheduledJob
-from .AlgoPriorityQueue import PriorityType
+from .AlgoPreemptivePriorityQueue import PriorityType
 from .Segment import Segment
 from .Job import Job
 import heapq
