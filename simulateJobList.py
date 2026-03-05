@@ -55,12 +55,16 @@ def simulateJobs():
     sampledThreadNumber = np.random.poisson(lam=averageThreadNumber - 1, size=n) + 1
     jobsList = []
     globalSemaphoreList = []
-    jobsThreadLengths = np.exp(np.random.normal(loc=np.log(averageJobLength), scale=np.log(jobLengthUncertainty) + 2, size=n))
+    sigma = 0.25
+    mu = np.log(averageJobLength) - 0.5 * sigma**2
+    jobsThreadLengths = np.random.lognormal(mean=mu, sigma=sigma, size=n)
     if np.any(jobsThreadLengths <= 0):
         raise ValueError("No negative lengths!")
     for i in range(n):
         #sample one job length per thread
-        sampledIntervalLengths = np.exp(np.random.normal(loc=np.log(jobsThreadLengths[i]), scale=np.log(jobLengthUncertainty) - 0.9, size=sampledThreadNumber[i]))
+        sigma /=  3
+        mu = np.log(jobsThreadLengths[i]) - 0.5 * sigma**2
+        sampledIntervalLengths = np.random.lognormal(mean=mu, sigma=sigma, size=sampledThreadNumber[i])
         newJob = SimulatedJob(i, 
                               sampledSubmissionTimes[i],
                               sampledThreadNumber[i],

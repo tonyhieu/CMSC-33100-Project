@@ -53,6 +53,11 @@ def createSchedule():
                               action="store_true",
                               help="show full schedule dump, metrics breakdown, visualization, and verification")
 
+    parser.add_argument("--MRT",
+                              type=float,
+                              default=10.0,
+                              help="(PPQ) smallest amount of time threeads can be broken into for preemption")
+
     args = parser.parse_args()
     if not 0.0 <= args.zetamin <= 1.0:
         raise ValueError(f"--zetamin must be between 0 and 1, got {args.zetamin}")
@@ -62,9 +67,7 @@ def createSchedule():
 
     match args.algorithm:
         case AlgoType.PPQ:
-            algo = AlgoPreemptivePriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList)
-        case AlgoType.Preemptive:
-            algo = AlgoPreemptive(args.number, PriorityType.expectedLength, globalSemaphoreList)
+            algo = AlgoPreemptivePriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList, args.MRT)
         case AlgoType.FIFO:
             algo = AlgoFIFO(args.number, globalSemaphoreList)
         case AlgoType.PCS:

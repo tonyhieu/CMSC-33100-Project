@@ -17,7 +17,7 @@ class PriorityType(Enum):
 tieBreakingCounter = itertools.count()
 class AlgoPreemptivePriorityQueue(AlgoBase):
 
-    def __init__(self, nCores, priorityType, globalSemaphoreList):
+    def __init__(self, nCores, priorityType, globalSemaphoreList, minimumRunningTime):
         super().__init__("PriorityQueue", nCores, globalSemaphoreList)
         self.nCores = nCores
         self.priorityType = priorityType
@@ -26,6 +26,7 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         self.semaphoreMapping = {i : [] for i in range(len(globalSemaphoreList))}
         self.queuePriorities = [[] for _ in range(self.nCores)]
         self.queueExpectedDurationArrays = [np.array([], dtype = float) for _ in range(self.nCores)]
+        self.minimumRunningTime = minimumRunningTime
 
     def handleJobSubmission(self, job: Job):
         '''
@@ -40,6 +41,9 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         segments have finished and nothing in the queue. This is handled by looking at 
         the jobQueue length
         '''
+        if (job.id > 2300):
+            self.dumpDeadlock()
+            raise ValueError("Investigate Deadlock")
         self.resolveDeadlock(False)
         nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
         while (nextCore >= 0) and (self.currentSchedule.getExactEndTime(nextCore) < job.submissionTime):
@@ -78,7 +82,8 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
                     coreRestrictions[syncedThread].append(earliestCore)
                 else:
                     coreRestrictions[syncedThread] = [earliestCore]
-            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 10)
+            nSubThreads = self.getNumberOfSubThreads(thread.actualLength)
+            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, nSubThreads)
             tieCount = next(tieBreakingCounter)
             for subthread in (thread.subThreads):
                 subthread.priority = priority
@@ -89,9 +94,9 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             threadTieCounts[threadID] = tieCount
             threadCores[threadID] = earliestCore
             self.queueExpectedDuration[earliestCore] += thread.expectedLength
-            # idx = bisect.bisect_left(self.queuePriorities[earliestCore], (priority, tieCount))
-            # self.queuePriorities[earliestCore].insert(idx, (priority, tieCount))
-            # self.queueExpectedDurationArrays[earliestCore] = np.insert(self.queueExpectedDurationArrays[earliestCore], idx, thread.expectedLength)
+            idx = bisect.bisect_left(self.queuePriorities[earliestCore], (priority, tieCount))
+            self.queuePriorities[earliestCore].insert(idx, (priority, tieCount))
+            self.queueExpectedDurationArrays[earliestCore] = np.insert(self.queueExpectedDurationArrays[earliestCore], idx, thread.expectedLength)
 
 
         """
@@ -125,7 +130,7 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             raise ValueError("Trying to access a subthread that does not exist")
         subThreadToSchedule = threadToSchedule.subThreads[subThreadID]
         self.queueExpectedDuration[coreID] -= subThreadToSchedule.expectedLength
-        # self.queueExpectedDurationArrays[coreID][0] -= subThreadToSchedule.expectedLength
+        self.queueExpectedDurationArrays[coreID][0] -= subThreadToSchedule.expectedLength
         globalFloor = self.currentSchedule.previousSegmentAddTime
         if scheduleTime is None:
             threadStartTime = max(globalFloor,
@@ -149,13 +154,13 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         addResult = self.currentSchedule.addSegment(segment) #True is segment has to wait, change prioiry of all threads with a post
         if addResult:
             for mappedCore in self.semaphoreMapping[segment.start[0]]:
-                self.makePostsToWaitingSegmentsMoreUrgent(mappedCore, segment.jobID)
+                self.makePostsToWaitingSegmentsMoreUrgent(mappedCore, segment.jobID, segment.start[0], segment.threadID)
 
         if subThreadID < len(threadToSchedule.subThreads) - 1:
             heapq.heappush(self.jobQueue[coreID], (priority, tieCount, threadToSchedule, subThreadID + 1))
-        # else:
-        #     self.queueExpectedDurationArrays[coreID] = self.queueExpectedDurationArrays[coreID][1:]
-        #     self.queuePriorities[coreID].pop(0)
+        else:
+            self.queueExpectedDurationArrays[coreID] = self.queueExpectedDurationArrays[coreID][1:]
+            self.queuePriorities[coreID].pop(0)
 
         return -1
 
@@ -200,7 +205,7 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         return expectedQueueDuration
 
     def getExpectedDurationUntilThread(self, coreID, threadPriority, threadTieCount):
-        epectedDuration = self.getExpectedDurationUntilThread2(coreID, threadPriority, threadTieCount)
+        epectedDuration = self.getExpectedDurationUntilThread1(coreID, threadPriority, threadTieCount)
         return epectedDuration
                 
 
@@ -279,14 +284,15 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             was removed from the queue, so we need to add the thread back to the queue
             '''
             originalThread = self.scheduledJobs[removedSegment.jobID].threads[removedSegment.threadID]
-            priority = originalThread.subThreads[removedSegment.subThreadID].priority
+            priority = max(originalThread.subThreads[removedSegment.subThreadID].priority, 0.0)
+            originalThread.subThreads[removedSegment.subThreadID].priority = priority
             tieBreaker = originalThread.subThreads[removedSegment.subThreadID].tieBreaker
             heapq.heappush(self.jobQueue[coreID], (priority, tieBreaker,
                                                    originalThread,
                                                    removedSegment.subThreadID))
-            # idx = bisect.bisect_left(self.queuePriorities[coreID], (priority, tieBreaker))
-            # self.queuePriorities[coreID].insert(idx, (priority, tieBreaker))
-            # self.queueExpectedDurationArrays[coreID] = np.insert(self.queueExpectedDurationArrays[coreID], idx, removedSegment.expectedDuration)
+            idx = bisect.bisect_left(self.queuePriorities[coreID], (priority, tieBreaker))
+            self.queuePriorities[coreID].insert(idx, (priority, tieBreaker))
+            self.queueExpectedDurationArrays[coreID] = np.insert(self.queueExpectedDurationArrays[coreID], idx, removedSegment.expectedDuration)
 
         else:
             '''
@@ -303,8 +309,8 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
                     removedThreads.append(nextInQueue)
             for queueElement in removedThreads:
                 heapq.heappush(self.jobQueue[coreID], queueElement)
-            # idx = len(removedThreads) - 1
-            # self.queueExpectedDurationArrays[coreID][idx] += removedSegment.expectedDuration
+            idx = len(removedThreads) - 1
+            self.queueExpectedDurationArrays[coreID][idx] += removedSegment.expectedDuration
 
 
     def getCoreNextToBeScheduled(self):
@@ -356,8 +362,9 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
                         if queueElement[2].jobID == lastSegment.jobID:
                             subThreadID = queueElement[3]
                             while subThreadID < len(queueElement[2].subThreads):
-                                print(f"{count}th On Core: {coreID} with priority: {queueElement[2].subThreads[subThreadID].priority:8.3f} and {queueElement[0]:8.3f}")
-                                queueElement[2].subThreads[subThreadID].dump()
+                                if queueElement[2].subThreads[subThreadID].start[2] != SemOperation.Blank:
+                                    print(f"{count}th On Core: {coreID} with priority: {queueElement[2].subThreads[subThreadID].priority:8.3f} and {queueElement[0]:8.3f}")
+                                    queueElement[2].subThreads[subThreadID].dump()
                                 subThreadID+=1
                             print()
                         removedFromQueue.append(queueElement)
@@ -365,7 +372,13 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
                         heapq.heappush(self.jobQueue[coreID], queueElement)
 
 
-    def makePostsToWaitingSegmentsMoreUrgent(self, coreID, jobID):
+    def makePostsToWaitingSegmentsMoreUrgent(self, coreID, jobID, semaphereID, excludeThread):
+        '''
+        we increeasee the priority of threads with posts to a blocked seemaphore
+
+        If a mutex is blocked, the blocked thread will also contain a post but increeasing its
+        priority will do nothing
+        '''
         queueSizeBefore = len(self.jobQueue[coreID])
         removedFromQueue = []
         durationChanges = []
@@ -373,20 +386,23 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             queueElement = heapq.heappop(self.jobQueue[coreID])
             priorityChange = False
             if (queueElement[2].jobID == jobID):
-                loopSTID = queueElement[3]
-                while loopSTID < len(queueElement[2].subThreads):
-                    if queueElement[2].subThreads[loopSTID].start[2] == SemOperation.Post:
-                        priorityChange = True
-                        break
-                    loopSTID += 1
+                if (queueElement[2].threadID != excludeThread):
+                    loopSTID = queueElement[3]
+                    while loopSTID < len(queueElement[2].subThreads):
+                        if queueElement[2].subThreads[loopSTID].start[0] == semaphereID:
+                            if queueElement[2].subThreads[loopSTID].start[2] == SemOperation.Post:
+                                priorityChange = True
+                                break
+                        loopSTID += 1
             if priorityChange:
+                priority = min(-1.0, queueElement[0] - 1)
                 loopSTID = queueElement[3]
                 while loopSTID < len(queueElement[2].subThreads):
-                    queueElement[2].subThreads[loopSTID].priority = -1.0
+                    queueElement[2].subThreads[loopSTID].priority = priority
                     loopSTID+=1
-                removedFromQueue.append((-1.0, queueElement[1], queueElement[2], queueElement[3]))
-                # listIdx = len(removedFromQueue) - 1
-                # durationChanges.append((listIdx, queueElement[1], self.queueExpectedDurationArrays[coreID][listIdx]))
+                removedFromQueue.append((priority, queueElement[1], queueElement[2], queueElement[3]))
+                listIdx = len(removedFromQueue) - 1
+                durationChanges.append((listIdx, queueElement[1], self.queueExpectedDurationArrays[coreID][listIdx]))
             else:
                 removedFromQueue.append(queueElement)
 
@@ -399,11 +415,11 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             self.queuePriorities[coreID].pop(durationChange[0] - count)
             self.queueExpectedDurationArrays[coreID] = np.delete(self.queueExpectedDurationArrays[coreID], durationChange[0] - count)
             count += 1
-        # for durationChange in durationChanges:
-        #     newPriorities = (-1.0, durationChange[1])
-        #     idx = bisect.bisect_left(self.queuePriorities[coreID], newPriorities)
-        #     self.queuePriorities[coreID].insert(idx, newPriorities)
-        #     self.queueExpectedDurationArrays[coreID] = np.insert(self.queueExpectedDurationArrays[coreID], idx, durationChange[2])
+        for durationChange in durationChanges:
+            newPriorities = (-1.0, durationChange[1])
+            idx = bisect.bisect_left(self.queuePriorities[coreID], newPriorities)
+            self.queuePriorities[coreID].insert(idx, newPriorities)
+            self.queueExpectedDurationArrays[coreID] = np.insert(self.queueExpectedDurationArrays[coreID], idx, durationChange[2])
 
         
 
@@ -412,6 +428,11 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         if (queueSizeBefore != len(self.jobQueue[coreID])):
             print(queueSizeBefore, len(self.jobQueue[coreID]))
             raise ValueError("Queue was not maintained")
+
+    def getNumberOfSubThreads(self, threadLength):
+        if threadLength < self.minimumRunningTime:
+            return 1
+        return int(threadLength // self.minimumRunningTime)
 
     @classmethod
     def _print_status(cls, event, total):

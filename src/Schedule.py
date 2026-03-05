@@ -51,6 +51,9 @@ class Schedule:
                 self.waiting[(segment.jobID, segment.threadID, segment.subThreadID)] = (segment.coreID, len(self.schedule[segment.coreID]))
         elif startOp == SemOperation.Post:
             postResult = self.globalSemaphoreList[segment.start[0]].postAtTime(segment.startTime)
+            if (segment.jobID == 2437):
+                if (segment.start[0] == 2980):
+                    print(f"{postResult.freeing=} {postResult.threadID=} {postResult.subThreadID=}")
             if postResult.freeing:
                 self.startWaitingSegment(postResult.jobID, postResult.threadID, postResult.subThreadID, segment.startTime)
         self.schedule[segment.coreID].append(segment)
