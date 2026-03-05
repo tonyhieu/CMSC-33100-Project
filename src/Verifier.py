@@ -47,6 +47,14 @@ class Verifier:
         threadBooleans = [[False for _ in range(job.nThreads)] for job in simulatedJobs]
         for coreID in range(finishedAlgorithm.nCores):
             for segment in finishedAlgorithm.currentSchedule.schedule[coreID]:
+                if not segment.finishedRunning:
+                    if (segment.startTime != -1.0) or (segment.endTime != -1.0) or (segment.waitingTime != 0.0):
+                        print("unfinished segments are inconsistnt")
+                        return False
+                if (segment.startTime == -1.0) or (segment.endTime == -1.0):
+                        if segment.finishedRunning:
+                            print("negative start times for segments are inconsistnt")
+                            return False
                 threadBooleans[segment.jobID][segment.threadID] = True
 
 
