@@ -366,7 +366,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         '''
         queueSizeBefore = len(self.jobQueue[coreID])
         removedFromQueue = []
-        durationChanges = []
         while len(self.jobQueue[coreID]) > 0:
             queueElement = heapq.heappop(self.jobQueue[coreID])
             priorityChange = False
