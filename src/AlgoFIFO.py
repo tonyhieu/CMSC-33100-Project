@@ -65,7 +65,7 @@ class AlgoFIFO(AlgoBase):
                 else:
                     coreRestrictions[syncedThread] = [earliestCore]
 
-            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread, 10)
+            thread.subThreads = AlgoBase.breakThreadIntoSubThreads(thread)
             for subthread in (thread.subThreads):
                 self.jobQueue[earliestCore].append(subthread)
             self.queueExpectedDuration[earliestCore] += thread.expectedLength

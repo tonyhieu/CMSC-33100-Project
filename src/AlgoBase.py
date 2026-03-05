@@ -13,7 +13,7 @@ class AlgoBase(ABC):
         self.scheduledJobs = {} #Dictionary of {jobID: ScheduledJob}
     
     @classmethod
-    def breakThreadIntoSubThreads(cls, thread, nSubThreads):
+    def breakThreadIntoSubThreads(cls, thread, nSubThreads = 1):
         if nSubThreads < 1:
             raise ValueError("We need at least one subthread")
         threadBreaks = np.linspace(0.0, thread.actualLength, nSubThreads + 1)
