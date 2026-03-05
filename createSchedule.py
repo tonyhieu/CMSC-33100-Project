@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from src.AlgoFIFO import AlgoFIFO
 from src.AlgoPreemptive import AlgoPreemptive
-from src.AlgoPriorityQueue import AlgoPriorityQueue, PriorityType
+from src.AlgoPreemptivePriorityQueue import AlgoPreemptivePriorityQueue, PriorityType
 from src.AlgoPCS import AlgoPCS
 from src.Scheduler import Scheduler
 import pickle
@@ -11,7 +11,7 @@ from src.Verifier import Verifier
 
 class AlgoType(Enum):
     FIFO = "FIFO"
-    PriorityQueue = "PriorityQueue"
+    PPQ = "PPQ"
     PCS = "PCS"
     Preemptive = "Preemptive"
 
@@ -53,6 +53,11 @@ def createSchedule():
                               action="store_true",
                               help="show full schedule dump, metrics breakdown, visualization, and verification")
 
+    parser.add_argument("--MRT",
+                              type=float,
+                              default=10.0,
+                              help="(PPQ) smallest amount of time threeads can be broken into for preemption")
+
     args = parser.parse_args()
     if not 0.0 <= args.zetamin <= 1.0:
         raise ValueError(f"--zetamin must be between 0 and 1, got {args.zetamin}")
@@ -61,10 +66,8 @@ def createSchedule():
         jobList, globalSemaphoreList = pickle.load(f)
 
     match args.algorithm:
-        case AlgoType.PriorityQueue:
-            algo = AlgoPriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList)
-        case AlgoType.Preemptive:
-            algo = AlgoPreemptive(args.number, PriorityType.expectedLength, globalSemaphoreList)
+        case AlgoType.PPQ:
+            algo = AlgoPreemptivePriorityQueue(args.number, PriorityType.expectedLength, globalSemaphoreList, args.MRT)
         case AlgoType.FIFO:
             algo = AlgoFIFO(args.number, globalSemaphoreList)
         case AlgoType.PCS:

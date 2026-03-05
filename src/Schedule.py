@@ -43,6 +43,7 @@ class Schedule:
         self.previousSegmentAddTime = segment.startTime
         startOp = segment.start[2]
         endOp = segment.end[2]
+        waitResult = False
         if startOp == SemOperation.Wait:
             waitResult = self.globalSemaphoreList[segment.start[0]].waitAtTime(segment.startTime, segment.jobID, segment.threadID, segment.subThreadID)
             if waitResult:
@@ -50,14 +51,20 @@ class Schedule:
                 self.waiting[(segment.jobID, segment.threadID, segment.subThreadID)] = (segment.coreID, len(self.schedule[segment.coreID]))
         elif startOp == SemOperation.Post:
             postResult = self.globalSemaphoreList[segment.start[0]].postAtTime(segment.startTime)
+            if (segment.jobID == 2437):
+                if (segment.start[0] == 2980):
+                    print(f"{postResult.freeing=} {postResult.threadID=} {postResult.subThreadID=}")
             if postResult.freeing:
                 self.startWaitingSegment(postResult.jobID, postResult.threadID, postResult.subThreadID, segment.startTime)
         self.schedule[segment.coreID].append(segment)
-        return len(self.schedule[segment.coreID]) - 1
+        return waitResult
 
     def startWaitingSegment(self, jobID, threadID, subThreadID, resumeTime):
         coreID, entryID = self.waiting[(jobID, threadID, subThreadID)]
         self.schedule[coreID][entryID].resumeAtTime(resumeTime)
+
+    def getWaitingSegment(self, coreID):
+        return self.schedule[coreID][-1]
 
     def dump(self):
         for coreID in range(self.nCores):

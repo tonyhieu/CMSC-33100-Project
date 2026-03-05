@@ -16,13 +16,14 @@ class Verifier:
             3    there are no overlapping segments on an individual core
             4    every scheduled thread runs AFTER it was submitted
             5    Semaphore work as expected
+            6    Every SubThread runs in the order it is supposed to
 
             feel free to add and implement more test conditions
     '''
 
     def __init__(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
         print("Verifying...")
-        self.conditions = [self.one, self.two, self.three, self.four, self.five]
+        self.conditions = [self.one, self.two, self.three, self.four, self.five, self.six]
         self.verified = True
         for i, condition in enumerate(self.conditions):
             if not condition(finishedAlgorithm, simulatedJobs, globalSemaphoreList):
@@ -46,6 +47,14 @@ class Verifier:
         threadBooleans = [[False for _ in range(job.nThreads)] for job in simulatedJobs]
         for coreID in range(finishedAlgorithm.nCores):
             for segment in finishedAlgorithm.currentSchedule.schedule[coreID]:
+                if not segment.finishedRunning:
+                    if (segment.startTime != -1.0) or (segment.endTime != -1.0) or (segment.waitingTime != 0.0):
+                        print("unfinished segments are inconsistnt")
+                        return False
+                if (segment.startTime == -1.0) or (segment.endTime == -1.0):
+                        if segment.finishedRunning:
+                            print("negative start times for segments are inconsistnt")
+                            return False
                 threadBooleans[segment.jobID][segment.threadID] = True
 
 
@@ -189,5 +198,18 @@ class Verifier:
                             break 
                     if not validPostOperation:
                         print("no valid Post operation")
+                        return False
+        return True
+
+    def six(self, finishedAlgorithm, simulatedJobs, globalSemaphoreList):
+        '''
+        Every SubThread runs in the order it is supposed to
+        '''
+        for coreID in range(finishedAlgorithm.nCores):
+            previousSegment = finishedAlgorithm.currentSchedule.schedule[coreID][0]
+            for segment in finishedAlgorithm.currentSchedule.schedule[coreID][1:]:
+                if (segment.threadID == previousSegment.threadID) and (segment.jobID == previousSegment.jobID):
+                    if previousSegment.subThreadID >= segment.subThreadID:
+                        print("previous segment is incorrect order")
                         return False
         return True

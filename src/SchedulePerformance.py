@@ -66,10 +66,22 @@ class SchedulePerformance:
             self.fairness = 0.0
             return
 
-        totalWaitingTime = 0.0
+        self.fairness = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
-            totalWaitingTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
-        self.fairness = totalWaitingTime / len(scheduledJobs)
+            totalSegmentComputeTime = 0.0
+            coresUsed = []
+            for segmentID, segment in enumerate(scheduledJob.scheduledSegments):
+                # check if this segment actually ran or was preeempted
+                if segment.finishedRunning:
+                    if not (segment.coreID in coresUsed):
+                        coresUsed.append(segment.coreID)
+                    totalSegmentComputeTime += segment.endTime - segment.startTime
+                
+            averageSegmentComputeTime = totalSegmentComputeTime / len(coresUsed)
+            jobFinishTime = scheduledJob.getFinishTime()
+            if jobFinishTime - scheduledJob.submissionTime < averageSegmentComputeTime:
+                raise ValueError("Logic in fairness calculation messed up")
+            self.fairness = max(self.fairness, jobFinishTime - scheduledJob.submissionTime - averageSegmentComputeTime)
 
     def calculateCombined(self, scheduledJobs):
         self.combined = 0.0
@@ -107,6 +119,9 @@ class SchedulePerformance:
 
     def dump(self):
         print(f"{self.algo} Schedule Performance:")
-        print(f"efficiency: {self.efficiency:8.3f}, predictability: {self.predictability:8.3f}")
-        print(f"fairness: {self.fairness:8.3f}, combined: {self.combined:8.3f}")
+
+        print(f"efficiency (higher is optimal): {self.efficiency:8.3f}")
+        print(f"predictability (lower is optimal): {self.predictability:8.3f}")
+        print(f"fairness (lower is optimal): {self.fairness:8.3f}")
+        print(f"AvgJCT (lower is optimal): {self.AvgJCT:8.3f}")
         print()

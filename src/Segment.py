@@ -21,19 +21,25 @@ class Segment:
         self.waitingTime = 0.0
         self.waiting = False
         self.previousEndTime = -1.0
+        self.finishedRunning = True
 
     def makeWait(self):
         self.waiting = True
         self.previousEndTime = self.endTime
         self.endTime = np.inf
+        self.finishedRunning = False
 
     def resumeAtTime(self, globalTime):
         self.waiting = False
         self.waitingTime = globalTime - self.startTime
         self.endTime = self.waitingTime + self.previousEndTime
+        self.finishedRunning = True
 
     def dump(self):
         print(f"\t\tSegment ID: {self.segmentID:5}, SubThread ID: {self.subThreadID:5}, Thread ID: {self.threadID:5} of JobID: {self.jobID:5} running on Core: {self.coreID:5}")
-        print(f"\t\tStarts At: {self.startTime:8.3f} and Finishes at {self.endTime:8.3f}")
+        if self.waiting:
+            print(f"\t\tWaiting on {self.start[2].name} To Semaphore {self.start[0]:5} At {self.start[1]:8.3f}")
+        else:
+            print(f"\t\tStarts At: {self.startTime:8.3f} and Finishes at {self.endTime:8.3f}")
         print()
 

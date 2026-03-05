@@ -1,7 +1,7 @@
 from .AlgoBase import AlgoBase
 from .SchedulePerformance import SchedulePerformance
 from .ScheduledJob import ScheduledJob
-from .AlgoPriorityQueue import PriorityType
+from .AlgoPreemptivePriorityQueue import PriorityType
 from .Segment import Segment
 from .Job import Job
 import heapq
@@ -23,6 +23,7 @@ tieBreakingCounter = itertools.count()
 class AlgoPreemptive(AlgoBase):
 
     def __init__(self, nCores, priorityType, globalSemaphoreList):
+        raise ValueError("Duncan thinks this Algo is deprecated and shouldn't be used, use PPQ instead")
         super().__init__("PriorityQueue", nCores, globalSemaphoreList)
         self.nCores = nCores
         self.priorityType = priorityType

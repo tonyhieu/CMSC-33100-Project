@@ -1,4 +1,5 @@
 from .Semaphore import SemOperation
+import numpy as np
 
 class Thread:
     def __init__(self, threadID, 
@@ -19,6 +20,65 @@ class Thread:
         self.semOperations = sorted(tempPosts + tempWaits, key=lambda op: op[1])
         self.subThreads = []
 
+    def numberSemaphoresInWindow(self, windowStart, windowEnd):
+        if ((windowStart < 0.0) or (windowStart > windowEnd) or (windowEnd > self.actualLength)):
+            raise ValueError("not a valid window")
+        if len(self.semOperations) == 0:
+            return 0
+        count = 0
+        for semOp in self.semOperations:
+            if (windowStart <= semOp[1]) and (windowEnd > semOp[1]):
+                count+=1
+        return count
+
+    def splitWindowBySemaphores(self, windowStart, windowEnd, firstSubThreadID):
+        if ((windowStart < 0.0) or (windowStart > windowEnd) or (windowEnd > self.actualLength)):
+            raise ValueError("not a valid window")
+        if len(self.semOperations) == 0:
+            raise ValueError("no semaphore operations")
+        semaphoresInWindow = []
+        numberSemaphoresInWindow = 0
+        for semOp in self.semOperations:
+            if (windowStart <= semOp[1]) and (windowEnd > semOp[1]):
+                semaphoresInWindow.append(semOp)
+                numberSemaphoresInWindow += 1
+            if windowEnd <= semOp[1]:
+                break
+        if numberSemaphoresInWindow < 1:
+            raise ValueError("No semaphores in window to split")
+        actualLength = semaphoresInWindow[0][1] - windowStart
+        expectedLength = self.expectedLength * actualLength / self.actualLength
+        subthreads = [SubThread(firstSubThreadID, 
+                                self.threadID, 
+                                self.jobID, 
+                                self.submissionTime,
+                                actualLength,
+                                expectedLength,
+                                (-1, -1.0, SemOperation.Blank),
+                                semaphoresInWindow[0])]
+        for i, semOp in enumerate(semaphoresInWindow[1:]):
+            actualLength = semOp[1] - semaphoresInWindow[i][1]
+            expectedLength = self.expectedLength * actualLength / self.actualLength
+            subthreads.append(SubThread(firstSubThreadID + i + 1, 
+                                        self.threadID, 
+                                        self.jobID, 
+                                        self.submissionTime,
+                                        actualLength,
+                                        expectedLength,
+                                        semaphoresInWindow[i],
+                                        semOp))
+        actualLength = windowEnd - semaphoresInWindow[-1][1]
+        expectedLength = self.expectedLength * actualLength / self.actualLength
+        subthreads.append(SubThread(firstSubThreadID + numberSemaphoresInWindow, 
+                                    self.threadID, 
+                                    self.jobID, 
+                                    self.submissionTime,
+                                    actualLength,
+                                    expectedLength,
+                                    semaphoresInWindow[-1],
+                                    (-1, -1.0, SemOperation.Blank)))
+        return subthreads
+
     def dump(self):
         print(f"---Thread {self.threadID:5} Has Length: {self.actualLength:8.3f} and Expected Length: {self.expectedLength:8.3f}")
         for semOp in self.semOperations:
@@ -27,7 +87,7 @@ class Thread:
 class SubThread:
 
 
-    def __init__(self, thread, startIndex):
+    def __init__(self, subThreadID, threadID, jobID, submissionTime, actualLength, expectedLength, startCondition, endCondition):
         '''
         because each thread has a start, end, and n semaphore operations mixed in between,
         we will break each threead into a subthread, beginning and ending with either a threead start, thread end, 
@@ -37,10 +97,14 @@ class SubThread:
         Start index of i is the ith semaphore opeeration 
         '''
 
-        self.subThreadID = startIndex
-        self.threadID = thread.threadID
-        self.jobID = thread.jobID
-        self.submissionTime = thread.submissionTime
+        self.subThreadID = subThreadID
+        self.threadID = threadID
+        self.jobID = jobID
+        self.submissionTime = submissionTime
+        self.actualLength = actualLength
+        self.expectedLength = expectedLength
+        self.start = startCondition
+        self.end = endCondition
 
         '''
         used Only in Preemptive Priority Queue to maintain 
@@ -49,34 +113,10 @@ class SubThread:
         self.priority = -1.0 
         self.tieBreaker = -1.0
 
-        if ((startIndex == 0) and (len(thread.semOperations) > 0)):
-            #start is the main thread start, end is a semaphore operation
-            self.actualLength = thread.semOperations[0][1]
-            self.start = (-1, 0.0, SemOperation.Blank)
-            self.end = thread.semOperations[startIndex]
-        elif ((startIndex == 0) and (len(thread.semOperations) == 0)):
-            #start is the main thread start, end is the main thread end
-            self.actualLength = thread.actualLength 
-            self.start = (-1, 0.0, SemOperation.Blank)
-            self.end = (-1, self.actualLength, SemOperation.Blank)
-        elif ((startIndex > 0) and (startIndex == len(thread.semOperations))): 
-            #start is a semaphore operation and end is the main thread end
-            self.actualLength = thread.actualLength - thread.semOperations[startIndex - 1][1]
-            self.start = thread.semOperations[startIndex - 1]
-            self.end = (-1, self.actualLength, SemOperation.Blank)
-        elif ((startIndex > 0) and (startIndex < len(thread.semOperations))):
-            #start and end are semaphore operations
-            self.actualLength = thread.semOperations[startIndex][1] - thread.semOperations[startIndex - 1][1]
-            self.start = thread.semOperations[startIndex - 1]
-            self.end = thread.semOperations[startIndex]
-        else:
-            raise ValueError("Logic in SubThread Corrupt")
         
-        self.expectedLength = self.actualLength * thread.expectedLength / thread.actualLength
-
     def dump(self):
         print(f"---SubThread {self.subThreadID:5} Of Thread {self.threadID:5} Of Job {self.jobID:5} Has Length: {self.actualLength:8.3f} and Expected Length: {self.expectedLength:8.3f}")
-        print(f"Start: {self.start[2].name} To {self.start[0]:5} At {self.start[1]:8.3f}")
+        print(f"Start: {self.start[2].name} To Semaphore {self.start[0]:5} At {self.start[1]:8.3f}")
 
         
         
