@@ -33,11 +33,11 @@ def createSchedule():
 
     parser.add_argument("--nqueues",
                               type=int,
-                              default=2,
+                              default=7,
                               help="(PCS) number of WFQ queues")
     parser.add_argument("--W",
                               type=float,
-                              default=1.0,
+                              default=0.5,
                               help="(PCS) weight-decay exponent; higher W gives smaller jobs more cores")
     parser.add_argument("--thresholds",
                               type=int,
