@@ -28,7 +28,7 @@ def createSchedule():
 
     parser.add_argument("-n", "--number", 
                               type=int, 
-                              default = 3, 
+                              default = 16, 
                               help="number of resourses available to run threads")
 
     parser.add_argument("--nqueues",
