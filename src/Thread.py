@@ -1,5 +1,4 @@
 from .Semaphore import SemOperation
-import bisect
 import numpy as np
 
 class Thread:

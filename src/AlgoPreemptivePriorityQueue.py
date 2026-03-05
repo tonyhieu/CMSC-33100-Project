@@ -9,7 +9,6 @@ import itertools
 from enum import Enum
 import numpy as np
 import sys
-import bisect
 
 class PriorityType(Enum):
     expectedLength = "expectedLength"
