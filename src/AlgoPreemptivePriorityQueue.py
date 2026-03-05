@@ -16,6 +16,8 @@ class PriorityType(Enum):
 
 tieBreakingCounter = itertools.count()
 class AlgoPreemptivePriorityQueue(AlgoBase):
+    preemptTheshold = 10.0
+    urgentTheshold = 20.0
 
     def __init__(self, nCores, priorityType, globalSemaphoreList, minimumRunningTime):
         super().__init__("PriorityQueue", nCores, globalSemaphoreList)
@@ -41,9 +43,9 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         segments have finished and nothing in the queue. This is handled by looking at 
         the jobQueue length
         '''
-        if (job.id > 2300):
-            self.dumpDeadlock()
-            raise ValueError("Investigate Deadlock")
+        # if (job.id > 2300):
+        #     self.dumpDeadlock()
+        #     raise ValueError("Investigate Deadlock")
         self.resolveDeadlock(False)
         nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
         while (nextCore >= 0) and (self.currentSchedule.getExactEndTime(nextCore) < job.submissionTime):
@@ -152,9 +154,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
                           threadEndTime)
         self.scheduledJobs[subThreadToSchedule.jobID].addSegment(segment)
         addResult = self.currentSchedule.addSegment(segment) #True is segment has to wait, change prioiry of all threads with a post
-        if addResult:
-            for mappedCore in self.semaphoreMapping[segment.start[0]]:
-                self.makePostsToWaitingSegmentsMoreUrgent(mappedCore, segment.jobID, segment.start[0], segment.threadID)
 
         if subThreadID < len(threadToSchedule.subThreads) - 1:
             heapq.heappush(self.jobQueue[coreID], (priority, tieCount, threadToSchedule, subThreadID + 1))
@@ -246,7 +245,12 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         for coreID in range(self.nCores):
             if self.currentSchedule.isCoreBlocked(coreID) < 0:
                 continue
-            self.freeCore(coreID)
+            waitingSegment = self.currentSchedule.getWaitingSegment(coreID)
+            if globalTime - waitingSegment.startTime > AlgoPreemptivePriorityQueue.preemptTheshold:
+                self.freeCore(coreID)
+            elif globalTime - waitingSegment.startTime > AlgoPreemptivePriorityQueue.urgentTheshold:
+                for mappedCore in self.semaphoreMapping[segment.start[0]]:
+                    self.makePostsToWaitingSegmentsMoreUrgent(mappedCore, segment.jobID, segment.start[0], segment.threadID)
             if len(self.jobQueue[coreID]) > 0:
                 coresToRecover.append(coreID)
             recovered = True

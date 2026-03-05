@@ -63,6 +63,9 @@ class Schedule:
         coreID, entryID = self.waiting[(jobID, threadID, subThreadID)]
         self.schedule[coreID][entryID].resumeAtTime(resumeTime)
 
+    def getWaitingSegment(self, coreID):
+        return self.schedule[coreID][-1]
+
     def dump(self):
         for coreID in range(self.nCores):
             for segment in self.schedule[coreID]:

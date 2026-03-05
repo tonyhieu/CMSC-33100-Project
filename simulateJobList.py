@@ -22,6 +22,14 @@ def simulateJobs():
                               type=float, 
                               default = 100., 
                               help="average job length")
+    parser.add_argument("--jobsLD", 
+                              type=float, 
+                              default = 0.0025, 
+                              help="Length Dispersion wrt Jobs. Log Normal and percentage of mean so do not thiink of as guassian sigma!")
+    parser.add_argument("--threadsLD", 
+                              type=float, 
+                              default = 0.0001, 
+                              help="Length Dispersion wrt Threads. Log Normal and percentage of mean so do not thiink of as guassian sigma!")
     parser.add_argument("-u", "--uncertainty", 
                               type=float, 
                               default = 5., 
@@ -55,14 +63,14 @@ def simulateJobs():
     sampledThreadNumber = np.random.poisson(lam=averageThreadNumber - 1, size=n) + 1
     jobsList = []
     globalSemaphoreList = []
-    sigma = 0.25
+    sigma = args.jobsLD * averageJobLength
     mu = np.log(averageJobLength) - 0.5 * sigma**2
     jobsThreadLengths = np.random.lognormal(mean=mu, sigma=sigma, size=n)
     if np.any(jobsThreadLengths <= 0):
         raise ValueError("No negative lengths!")
     for i in range(n):
         #sample one job length per thread
-        sigma /=  3
+        sigma = args.threadsLD * jobsThreadLengths[i]
         mu = np.log(jobsThreadLengths[i]) - 0.5 * sigma**2
         sampledIntervalLengths = np.random.lognormal(mean=mu, sigma=sigma, size=sampledThreadNumber[i])
         newJob = SimulatedJob(i, 
