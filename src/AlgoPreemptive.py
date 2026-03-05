@@ -23,6 +23,7 @@ tieBreakingCounter = itertools.count()
 class AlgoPreemptive(AlgoBase):
 
     def __init__(self, nCores, priorityType, globalSemaphoreList):
+        raise ValueError("Duncan thinks this Algo is deprecated and shouldn't be used, use PPQ instead")
         super().__init__("PriorityQueue", nCores, globalSemaphoreList)
         self.nCores = nCores
         self.priorityType = priorityType

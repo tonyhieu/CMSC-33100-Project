@@ -12,15 +12,15 @@ def simulateJobs():
                               help="Output file name")
     parser.add_argument("-n", "--number", 
                               type=int, 
-                              default = 100, 
+                              default = 4000, 
                               help="number of jobs to simulate")
     parser.add_argument("-t", "--time", 
                               type=float, 
-                              default = 1000., 
+                              default = 400000., 
                               help="latest possible sumbission time")
     parser.add_argument("-l", "--length", 
                               type=float, 
-                              default = 10., 
+                              default = 100., 
                               help="average job length")
     parser.add_argument("-u", "--uncertainty", 
                               type=float, 
@@ -32,11 +32,11 @@ def simulateJobs():
                             help="average number of threads for each job")
     parser.add_argument("--mut", 
                             type=float, 
-                            default = 0., 
+                            default = 0.1, 
                             help="probability of having a mutex in a given job")
     parser.add_argument("--sem", 
                             type=float, 
-                            default = 0., 
+                            default = 0.1, 
                             help="probability of having a semaphore")
 
     args = parser.parse_args()
