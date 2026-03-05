@@ -232,11 +232,15 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             if self.currentSchedule.isCoreBlocked(coreID) < 0:
                 continue
             waitingSegment = self.currentSchedule.getWaitingSegment(coreID)
+            '''
+            Currently, we will never get to the condition where we need to make posts more urgent, 
+            but if the workload changes and we do need it then that code is useful
+            '''
             if globalTime - waitingSegment.startTime > AlgoPreemptivePriorityQueue.preemptTheshold:
                 self.freeCore(coreID)
             elif globalTime - waitingSegment.startTime > AlgoPreemptivePriorityQueue.urgentTheshold:
-                for mappedCore in self.semaphoreMapping[segment.start[0]]:
-                    self.makePostsToWaitingSegmentsMoreUrgent(mappedCore, segment.jobID, segment.start[0], segment.threadID)
+                for mappedCore in self.semaphoreMapping[waitingSegment.start[0]]:
+                    self.makePostsToWaitingSegmentsMoreUrgent(mappedCore, waitingSegment.jobID, waitingSegment.start[0], waitingSegment.threadID)
             if len(self.jobQueue[coreID]) > 0:
                 coresToRecover.append(coreID)
             recovered = True
