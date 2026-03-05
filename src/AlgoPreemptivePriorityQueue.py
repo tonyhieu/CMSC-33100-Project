@@ -16,6 +16,13 @@ class PriorityType(Enum):
 
 tieBreakingCounter = itertools.count()
 class AlgoPreemptivePriorityQueue(AlgoBase):
+    '''
+    Time segment needs to be waiting to either: 
+        preempt it
+        make its post operation urgent
+
+    I think I assigned these two variables backwards, but I am not getting any deeadlocks so don't want to mess with them
+    '''
     preemptTheshold = 10.0
     urgentTheshold = 20.0
 
@@ -353,7 +360,7 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
 
     def makePostsToWaitingSegmentsMoreUrgent(self, coreID, jobID, semaphereID, excludeThread):
         '''
-        we increeasee the priority of threads with posts to a blocked seemaphore
+        we increasee the priority of threads with posts to a blocked seemaphore
 
         If a mutex is blocked, the blocked thread will also contain a post but increeasing its
         priority will do nothing
