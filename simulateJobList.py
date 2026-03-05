@@ -16,7 +16,7 @@ def simulateJobs():
                               help="number of jobs to simulate")
     parser.add_argument("-t", "--time", 
                               type=float, 
-                              default = 400000., 
+                              default = 40000., 
                               help="latest possible sumbission time")
     parser.add_argument("-l", "--length", 
                               type=float, 
