@@ -26,8 +26,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         self.jobQueue = [[] for _ in range(self.nCores)] #initialize list which heapq uses
         self.queueExpectedDuration = [0.0 for _ in range(self.nCores)]
         self.semaphoreMapping = {i : [] for i in range(len(globalSemaphoreList))}
-        self.queuePriorities = [[] for _ in range(self.nCores)]
-        self.queueExpectedDurationArrays = [np.array([], dtype = float) for _ in range(self.nCores)]
         self.minimumRunningTime = minimumRunningTime
 
     def handleJobSubmission(self, job: Job):
@@ -43,9 +41,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         segments have finished and nothing in the queue. This is handled by looking at 
         the jobQueue length
         '''
-        # if (job.id > 2300):
-        #     self.dumpDeadlock()
-        #     raise ValueError("Investigate Deadlock")
         self.resolveDeadlock(False)
         nextCore = self.getCoreNextToBeScheduled() #>=0 runnable, -1 blocked, -2 empty
         while (nextCore >= 0) and (self.currentSchedule.getExactEndTime(nextCore) < job.submissionTime):
@@ -96,9 +91,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             threadTieCounts[threadID] = tieCount
             threadCores[threadID] = earliestCore
             self.queueExpectedDuration[earliestCore] += thread.expectedLength
-            idx = bisect.bisect_left(self.queuePriorities[earliestCore], (priority, tieCount))
-            self.queuePriorities[earliestCore].insert(idx, (priority, tieCount))
-            self.queueExpectedDurationArrays[earliestCore] = np.insert(self.queueExpectedDurationArrays[earliestCore], idx, thread.expectedLength)
 
 
         """
@@ -132,7 +124,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             raise ValueError("Trying to access a subthread that does not exist")
         subThreadToSchedule = threadToSchedule.subThreads[subThreadID]
         self.queueExpectedDuration[coreID] -= subThreadToSchedule.expectedLength
-        self.queueExpectedDurationArrays[coreID][0] -= subThreadToSchedule.expectedLength
         globalFloor = self.currentSchedule.previousSegmentAddTime
         if scheduleTime is None:
             threadStartTime = max(globalFloor,
@@ -157,9 +148,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
 
         if subThreadID < len(threadToSchedule.subThreads) - 1:
             heapq.heappush(self.jobQueue[coreID], (priority, tieCount, threadToSchedule, subThreadID + 1))
-        else:
-            self.queueExpectedDurationArrays[coreID] = self.queueExpectedDurationArrays[coreID][1:]
-            self.queuePriorities[coreID].pop(0)
 
         return -1
 
@@ -179,11 +167,7 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         '''
         return max(submissionTime, self.currentSchedule.getLastJobsExpectedEndTime(coreID))
 
-    def getExpectedDurationUntilThread1(self, coreID, threadPriority, threadTieCount):
-        idx = bisect.bisect_left(self.queuePriorities[coreID], (threadPriority, threadTieCount))
-        return np.sum(self.queueExpectedDurationArrays[coreID][:idx])
-
-    def getExpectedDurationUntilThread2(self, coreID, threadPriority, threadTieCount):
+    def getExpectedDurationUntilThread(self, coreID, threadPriority, threadTieCount):
         expectedQueueDuration = 0.0
         """
         go through queue, and add up the expected wait time of everything 
@@ -202,10 +186,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
         for queueElement in removedFromQueue:
             heapq.heappush(self.jobQueue[coreID], queueElement)
         return expectedQueueDuration
-
-    def getExpectedDurationUntilThread(self, coreID, threadPriority, threadTieCount):
-        epectedDuration = self.getExpectedDurationUntilThread1(coreID, threadPriority, threadTieCount)
-        return epectedDuration
                 
 
     def evaluateSchedule(self, verbose=False):
@@ -294,9 +274,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
             heapq.heappush(self.jobQueue[coreID], (priority, tieBreaker,
                                                    originalThread,
                                                    removedSegment.subThreadID))
-            idx = bisect.bisect_left(self.queuePriorities[coreID], (priority, tieBreaker))
-            self.queuePriorities[coreID].insert(idx, (priority, tieBreaker))
-            self.queueExpectedDurationArrays[coreID] = np.insert(self.queueExpectedDurationArrays[coreID], idx, removedSegment.expectedDuration)
 
         else:
             '''
@@ -313,8 +290,6 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
                     removedThreads.append(nextInQueue)
             for queueElement in removedThreads:
                 heapq.heappush(self.jobQueue[coreID], queueElement)
-            idx = len(removedThreads) - 1
-            self.queueExpectedDurationArrays[coreID][idx] += removedSegment.expectedDuration
 
 
     def getCoreNextToBeScheduled(self):
@@ -405,25 +380,12 @@ class AlgoPreemptivePriorityQueue(AlgoBase):
                     queueElement[2].subThreads[loopSTID].priority = priority
                     loopSTID+=1
                 removedFromQueue.append((priority, queueElement[1], queueElement[2], queueElement[3]))
-                listIdx = len(removedFromQueue) - 1
-                durationChanges.append((listIdx, queueElement[1], self.queueExpectedDurationArrays[coreID][listIdx]))
             else:
                 removedFromQueue.append(queueElement)
 
 
         for queueElement in removedFromQueue:
             heapq.heappush(self.jobQueue[coreID], queueElement)
-
-        count = 0
-        for durationChange in durationChanges:
-            self.queuePriorities[coreID].pop(durationChange[0] - count)
-            self.queueExpectedDurationArrays[coreID] = np.delete(self.queueExpectedDurationArrays[coreID], durationChange[0] - count)
-            count += 1
-        for durationChange in durationChanges:
-            newPriorities = (-1.0, durationChange[1])
-            idx = bisect.bisect_left(self.queuePriorities[coreID], newPriorities)
-            self.queuePriorities[coreID].insert(idx, newPriorities)
-            self.queueExpectedDurationArrays[coreID] = np.insert(self.queueExpectedDurationArrays[coreID], idx, durationChange[2])
 
         
 
