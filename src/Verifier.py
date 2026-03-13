@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-floatThreshold = float(os.getenv("FLOAT_PRECISION"))
+floatThreshold = float(os.getenv("FLOAT_PRECISION", "0.0001"))
 
 class Verifier:
     '''
@@ -206,10 +206,14 @@ class Verifier:
         Every SubThread runs in the order it is supposed to
         '''
         for coreID in range(finishedAlgorithm.nCores):
-            previousSegment = finishedAlgorithm.currentSchedule.schedule[coreID][0]
-            for segment in finishedAlgorithm.currentSchedule.schedule[coreID][1:]:
+            coreSchedule = finishedAlgorithm.currentSchedule.schedule[coreID]
+            if len(coreSchedule) < 2:
+                continue
+            previousSegment = coreSchedule[0]
+            for segment in coreSchedule[1:]:
                 if (segment.threadID == previousSegment.threadID) and (segment.jobID == previousSegment.jobID):
                     if previousSegment.subThreadID >= segment.subThreadID:
                         print("previous segment is incorrect order")
                         return False
+                previousSegment = segment
         return True

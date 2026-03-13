@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 import os
 
 load_dotenv()
-floatPrecision = float(os.getenv("FLOAT_PRECISION"))
+floatPrecision = float(os.getenv("FLOAT_PRECISION", "0.0001"))
 
 """
 This is equivalent to prioritty queue but it removes jobs that 

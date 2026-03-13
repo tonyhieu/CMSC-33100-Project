@@ -1,7 +1,7 @@
 from .Semaphore import SemOperation
 import os
 
-floatThreshold = float(os.getenv("FLOAT_PRECISION"))
+floatThreshold = float(os.getenv("FLOAT_PRECISION", "0.0001"))
 
 class Schedule:
 

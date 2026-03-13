@@ -10,21 +10,20 @@ from .Scheduler import Scheduler
     
 class PCSParameterSearch(Problem):
 
-    def __init__(self, jobList=None, globalSemaphoreList=None):
+    def __init__(self, jobList=None, globalSemaphoreList=None, nCores=8):
         
-        # Could search over threshholds as well, would slow it down a ton though
-        # Perhaps some way of parameterizing thresholds (?) but seems clunky
+        self.nCores = nCores 
+        self.jobList = jobList
+        self.globalSemaphoreList = globalSemaphoreList
+        self.paretoFroniter = None
+
         super().__init__(
             n_var=2,         # nQueues, W
             n_obj=2,         # avg JCT, predictability
             n_constr=0,      # no constraints
-            # More intelligent selection of bounds
-            xl=np.array([1, 0]),  # lower bounds
-            xu=np.array([10, 5])      # upper bounds
+            xl=np.array([1, 0.0]),  
+            xu=np.array([nCores - 1, 5.0]) 
         )
-        self.jobList = jobList
-        self.globalSemaphoreList = globalSemaphoreList
-        self.paretoFroniter = None
 
     # Evaluate performance of each parameter selection for search
     # Will probably parralelize later
@@ -41,12 +40,15 @@ class PCSParameterSearch(Problem):
     
     # Calculate performance performance of PCS schedule
     def calculatePCSPerformance(self, nQueues, W, thresholds):
-        algo = AlgoPCS(len(self.jobList), 
-                   self.globalSemaphoreList, 
+        import copy
+        job_copy = copy.deepcopy(self.jobList)
+        semaphore_copy = copy.deepcopy(self.globalSemaphoreList)
+        algo = AlgoPCS(self.nCores, 
+                   semaphore_copy, 
                    nQueues=nQueues, 
                    W=W,
                     thresholds=thresholds)
-        scheduler = Scheduler(algo, self.jobList)
+        scheduler = Scheduler(algo, job_copy)
         scheduler.createSchedule()
         schedulePerformance = scheduler.evaluateSchedule(verbose=False)
         return schedulePerformance.AvgJCT, schedulePerformance.predictability
@@ -65,11 +67,22 @@ class PCSParameterSearch(Problem):
         return res.X, res.F
     
     # Plot the pareto frontier found above
-    def plotParetoFrontier(self):
+    def plotParetoFrontier(self, save_path=None):
         if self.paretoFroniter is None:
             raise ValueError("Frontier Not Calculated")
+        plt.figure()
         plt.scatter(self.paretoFroniter[:,0], self.paretoFroniter[:,1])
         plt.xlabel("JCT")
         plt.ylabel("Predictability")
         plt.title("Pareto Frontier")
-        plt.show()
+        if save_path:
+            plt.savefig(save_path)
+        plt.close()
+
+    def saveParetoCSV(self, X, F, save_path):
+        import csv
+        with open(save_path, 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(["nQueues", "W", "AvgJCT", "Predictability"])
+            for params, metrics in zip(X, F):
+                writer.writerow([int(round(params[0])), params[1], metrics[0], metrics[1]])

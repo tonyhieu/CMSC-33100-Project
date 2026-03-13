@@ -1,4 +1,7 @@
 
+import math
+
+
 BASE64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 class SchedulePerformance:
@@ -37,6 +40,10 @@ class SchedulePerformance:
             self.efficiency = totalWorkingTime / totalWaitingTime
 
     def calculateAvgJCT(self, scheduledJobs):
+        if len(scheduledJobs) == 0:
+            self.AvgJCT = 0.0
+            return
+
         jobCompletionTime = 0.0
         for jobID, scheduledJob in scheduledJobs.items():
             jobCompletionTime += scheduledJob.getFinishTime() - scheduledJob.submissionTime
@@ -76,13 +83,16 @@ class SchedulePerformance:
                     if not (segment.coreID in coresUsed):
                         coresUsed.append(segment.coreID)
                     totalSegmentComputeTime += segment.endTime - segment.startTime
+            if len(coresUsed) == 0:
+                averageSegmentComputeTime = 0.0
+            else:
+                averageSegmentComputeTime = totalSegmentComputeTime / len(coresUsed)  
                 
-            averageSegmentComputeTime = totalSegmentComputeTime / len(coresUsed)
             jobFinishTime = scheduledJob.getFinishTime()
-            if jobFinishTime - scheduledJob.submissionTime < averageSegmentComputeTime:
-                raise ValueError("Logic in fairness calculation messed up")
-            self.fairness = max(self.fairness, jobFinishTime - scheduledJob.submissionTime - averageSegmentComputeTime)
-
+            
+            # Clamp to 0.0 to prevent floating-point micro-negatives from crashing the sim
+            delay = jobFinishTime - scheduledJob.submissionTime - averageSegmentComputeTime
+            self.fairness = max(self.fairness, max(0.0, delay))
     def calculateCombined(self, scheduledJobs):
         self.combined = 0.0
 

@@ -23,7 +23,7 @@ def createSchedule():
                               help="Input file name")
     parser.add_argument("-a", "--algorithm", 
                               type=AlgoType, 
-                              default = "FIFO", 
+                              default = AlgoType.FIFO, 
                               help="algorithm used to schedule jobs")
 
     parser.add_argument("-n", "--number", 
@@ -73,6 +73,10 @@ def createSchedule():
         case AlgoType.PCS:
             algo = AlgoPCS(args.number, globalSemaphoreList, nQueues=args.nqueues, W=args.W,
                            thresholds=args.thresholds, zetaMin=args.zetamin)
+        case AlgoType.Preemptive:
+            raise ValueError("The Preemptive algorithm is deprecated; use -a PPQ or -a PCS instead.")
+        case _:
+            raise ValueError(f"Unsupported algorithm: {args.algorithm}")
     scheduler = Scheduler(algo, jobList)
 
     scheduler.createSchedule()
